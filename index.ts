@@ -1,3 +1,3 @@
 import './SystemUpdateFunction';
-import './Commands';
+import './Utilities';
 import './OpenAnticheat';
