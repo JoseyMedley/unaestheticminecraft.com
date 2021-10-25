@@ -86,3 +86,9 @@ https://discord.gg/pC9XdkC
 
 ## BDSX Core
 https://github.com/bdsx/bdsx-core
+
+## Unaestheticminecraft.com Discord
+https://discord.gg/XKzSmhX
+
+## Server IP
+unaestheticminecraft.com Port 19132
