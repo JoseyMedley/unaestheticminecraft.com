@@ -35,7 +35,7 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
 
 To download, clone the repo:
 ```bash
-git clone https://github.com/bdsx/bdsx.git
+git clone https://github.com/JoseyMedley/unaestheticminecraft.com.git
 ```
 
 ### Debug & Launch with VSCode
