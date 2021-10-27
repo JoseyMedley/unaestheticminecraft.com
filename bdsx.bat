@@ -16,7 +16,7 @@ del /f bedrock_server\bdsx_shell_data.ini >nul 2>nul
 rem backup map
 for /F "tokens=2" %%i in ('date /t') do set mydate=%%i
 set foldername = %mydate%-%time%
-aws s3 cp bedrock_server\worlds\Unaesthetic s3://unaestheticbackup/%foldername%/ --recursive
+robocopy .\bedrock_server\worlds\Unaesthetic .\backups\%foldername%\
 
 rem loop begin
 :_loop
