@@ -16,7 +16,7 @@ del /f bedrock_server\bdsx_shell_data.ini >nul 2>nul
 rem backup map
 for /F "tokens=2" %%i in ('date /t') do set mydate=%%i
 set foldername = %mydate%-%time%
-robocopy .\bedrock_server\worlds\Unaesthetic .\backups\%foldername%\
+robocopy .\bedrock_server\worlds\Unaesthetic .\backups\%foldername%\ /e /copyall
 
 rem loop begin
 :_loop
