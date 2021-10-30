@@ -14,9 +14,11 @@ rem remove junk
 del /f bedrock_server\bdsx_shell_data.ini >nul 2>nul
 
 rem backup map
-for /F "tokens=2" %%i in ('date /t') do set mydate=%%i
-set foldername = %mydate%-%time%
-robocopy .\bedrock_server\worlds\Unaesthetic .\backups\%foldername%\ /e /copyall
+For /f "tokens=2-4 delims=/ " %%a in ('date /t') do (set mydate=%%c-%%a-%%b)
+set foldername=backups\%mydate%
+if not exist "%foldername%" (
+    robocopy .\bedrock_server\worlds\Unaesthetic ".\%foldername%\Unaesthetic" /e /copyall
+)
 
 rem loop begin
 :_loop
