@@ -1,13 +1,13 @@
-// suicide command for unaestheticminecraft.com
+//General utilities for unaestheticminecraft.com
 import { system } from "./example_and_test/bedrockapi-system";
-import { command, ServerPlayer } from "bdsx";
+import { CommandRawText } from "./bdsx/bds/command";
 import { Packet } from "./bdsx/bds/packet";
 import { events } from "./bdsx/event";
 import { MinecraftPacketIds } from "./bdsx/bds/packetids";
 
 console.log("initializing Utilities");
-// this hooks all commands, but it cannot be executed by command blocks
-command.hook.on((command, originName)=>{
+
+/*command.register((command, originName)=>{
     if (command === '/suicide') {
 	    var newCommand = "/kill "+ originName;
         system.executeCommand(newCommand, result => {});
@@ -15,7 +15,14 @@ command.hook.on((command, originName)=>{
     }
 
 });
+*/
 
 
+// logs chat
+events.packetBefore(MinecraftPacketIds.Text).on(ev=>{
+    
+    console.log(ev.name + ": " + ev.message);
+});
 
-// logs deaths and chat
+
+//check inventory
