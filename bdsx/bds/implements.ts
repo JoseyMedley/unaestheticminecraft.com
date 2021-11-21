@@ -181,6 +181,7 @@ Actor.prototype.getName = procHacker.js("Actor::getNameTag", CxxString, {this:Ac
 Actor.prototype.setName = procHacker.js("Actor::setNameTag", void_t, {this:Actor}, CxxString);
 Actor.prototype.addTag = procHacker.js("Actor::addTag", bool_t, {this:Actor}, CxxString);
 Actor.prototype.hasTag = procHacker.js("Actor::hasTag", bool_t, {this:Actor}, CxxString);
+Actor.prototype.despawn = procHacker.js("Actor::despawn", void_t, {this:Actor});
 Actor.prototype.removeTag = procHacker.js("Actor::removeTag", bool_t, {this:Actor}, CxxString);
 Actor.prototype.getPosition = procHacker.js("Actor::getPos", Vec3, {this:Actor});
 Actor.prototype.getRotation = procHacker.js("Actor::getRotation", Vec2, {this:Actor, structureReturn: true});
@@ -240,7 +241,7 @@ ItemActor.abstract({
 const attribNames = getEnumKeys(AttributeId).map(str=>AttributeName[str]);
 
 
-ServerPlayer.prototype.setAttribute = function(this:Actor, id:AttributeId, value:number):AttributeInstance|null {
+ServerPlayer.prototype.setAttribute = function(id:AttributeId, value:number):AttributeInstance|null {
     const attr = Actor.prototype.setAttribute.call(this, id, value);
     if (attr === null) return null;
     const packet = UpdateAttributesPacket.create();
@@ -253,9 +254,7 @@ ServerPlayer.prototype.setAttribute = function(this:Actor, id:AttributeId, value
     data.default = attr.defaultValue;
     packet.attributes.push(data);
     data.destruct();
-    if (this instanceof ServerPlayer) {
-        this.sendNetworkPacket(packet);
-    }
+    this.sendNetworkPacket(packet);
     packet.dispose();
     return attr;
 };
@@ -317,7 +316,11 @@ Player.prototype.syncAbilties = function() {
     this.sendPacket(pk);
     pk.dispose();
 };
+
+Player.prototype.clearRespawnPosition = procHacker.js('Player::clearRespawnPosition', void_t, {this:Player});
+Player.prototype.hasRespawnPosition = procHacker.js('Player::hasRespawnPosition', bool_t, {this:Player});
 Player.prototype.setRespawnPosition = procHacker.js('Player::setRespawnPosition', void_t, {this:Player}, BlockPos, int32_t);
+Player.prototype.setBedRespawnPosition = procHacker.js('Player::setBedRespawnPosition', void_t, {this:Player}, BlockPos);
 Player.prototype.getSpawnDimension = procHacker.js('Player::getSpawnDimension', int32_t, {this:Player, structureReturn: true});
 Player.prototype.getSpawnPosition = procHacker.js('Player::getSpawnPosition', BlockPos, {this:Player});
 
