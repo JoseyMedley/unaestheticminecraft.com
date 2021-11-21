@@ -32,72 +32,35 @@ events.entityCreated.on((ev)=>{
 });
 
 
-//attempts to brick illegal items
-/*
-events.packetBefore(MinecraftPacketIds.ContainerOpen).on((ev)=>{
-    var bruh = ev.containerId;
-    var heh = ev.type
-});
-
-*/
-
-/*
-events.playerPickupItem.on((ev)=>{
-    var bruh = ev.itemActor.identifier;
-    if (illegalItems.indexOf(bruh) != -1){
-        return CANCEL;
-    }
-});
-*/
-
 // patch placing illegal blocks
 // working a bit too well
 events.blockPlace.on((ev)=>{
     var blockName = ev.block.getName();
-    if (illegalBlocks.indexOf(blockName) != -1){
-        console.log("Illegal block: " + blockName + " rejected");
+    var playername = ev.player.getName();
+    var permissions = ev.player.getPermissionLevel();
+    if (illegalBlocks.indexOf(blockName) != -1 && permissions < 2){
+        console.log("Illegal block: " + blockName + " rejected from player: " + playername);
         return CANCEL;
     }
 })
 
-
-
-
-//attempt to brick .give based on PM code for inventory transaction packet
-events.packetRaw(0x1E).on((ptr, size, ni)=>{
-    ptr.move(1);
-    var requestID = ptr.readVarInt();
-    var length = ptr.readVarUint();
-    if(requestID!=0){
-        for(var i=0;i<length;i++){
-            var useless = ptr.move(1);
-            var secondLength = ptr.readVarUint();
-            ptr.move(secondLength);
-        }
+events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => {
+    for (let i = 0; i < size; i++) {
+        try {
+            if (ptr.readVarUint() === 99999) {
+                var playername = ni.getActor()?.getName();
+                console.log(playername + " used fake inventory transaction packets");
+                return CANCEL;
+            }
+        } catch { }
     }
-    var TransactionType = ptr.readVarUint();
-
-    if(TransactionType==99999){
-        console.log(".give detected");
-        var id = connectionList.get(ni);
-        console.log(String(id) + " used fake packets");
-        system.executeCommand("/kick "+ String(id),()=>{});
-    }
-
 });
 
-
-
-
-
 //trying to brick crasher/elytra exploit
-// probably not working
-events.packetBefore(0x90).on((ptr)=>{
-    const Xposition = ptr.pos.x;
-    const Yposition = ptr.pos.y;
-    const Zposition = ptr.pos.z;
-    if (Xposition ==0xFFFFFFFF || Yposition ==0xFFFFFFFF || Zposition ==0xFFFFFFFF){
-        console.log("this fucking worked");
+// probably working
+events.packetBefore(MinecraftPacketIds.PlayerAuthInput).on((pk, ni) => {
+    if ((pk.moveX === 4294967296 && pk.moveZ === 4294967296) || (pk.pos.x === 4294967296 && pk.pos.y === 4294967296 && pk.pos.z === 4294967296)) {
+        console.log("crasher patch worked");
         return CANCEL;
     }
 });
@@ -113,4 +76,3 @@ events.entityHurt.on((ev)=>{
         return CANCEL;
     }
 });
-
