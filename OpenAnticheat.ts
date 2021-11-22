@@ -60,7 +60,8 @@ events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => 
 // probably working
 events.packetBefore(MinecraftPacketIds.PlayerAuthInput).on((pk, ni) => {
     if ((pk.moveX === 4294967296 && pk.moveZ === 4294967296) || (pk.pos.x === 4294967296 && pk.pos.y === 4294967296 && pk.pos.z === 4294967296)) {
-        console.log("crasher patch worked");
+        var playername = ni.getActor()?.getName();
+        console.log(playername + " used crasher");
         return CANCEL;
     }
 });
