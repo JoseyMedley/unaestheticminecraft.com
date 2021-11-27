@@ -6,7 +6,7 @@ This fork of BDSX adds in a basic anticheat along with some utilities and automa
 
 ## Features
 
-* OS: Windows or Linux (with Wine)
+* OS: Windows(Recommended), Linux with Wine(Unstable)
 * All Minecraft BDS features
 * All node.js features (*that are supported by ChakraCore. See [this page](https://github.com/bdsx/bdsx/wiki/Available-NPM-Modules) for more information)
 * Debug with Visual Studio Code (You can debug plugins too)
