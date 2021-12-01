@@ -5,9 +5,9 @@ const symbols = [
     'ScriptEngine::~ScriptEngine',
     'ScriptEngine::startScriptLoading',
     'MinecraftServerScriptEngine::onServerThreadStarted',
-    'std::thread::_Invoke<std::tuple<<lambda_8914ed82e3ef519cb2a85824fbe333d8> >,0>',
+    'std::thread::_Invoke<std::tuple<<lambda_58543e61c869eb14b8c48d51d3fe120b> >,0>',
     'ConsoleInputReader::getLine',
-    '<lambda_8914ed82e3ef519cb2a85824fbe333d8>::operator()',
+    '<lambda_58543e61c869eb14b8c48d51d3fe120b>::operator()',
     'ScriptEngine::initialize',
     'ScriptEngine::shutdown',
     'Level::createDimension',
@@ -73,7 +73,6 @@ const symbols = [
     'ExtendedCertificate::getIdentityName',
     'ExtendedCertificate::getIdentity',
     'MinecraftPackets::createPacket',
-    'NetworkHandler::onConnectionClosed#1',
     'BedrockLogOut',
     'DedicatedServer::stop',
     'NetworkIdentifier::operator==',
@@ -403,6 +402,7 @@ const symbols2 = [
     '?addEnumValues@CommandRegistry@@QEAAHAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@3@@Z',
     '??$try_get@VUserEntityIdentifierComponent@@@?$basic_registry@VEntityId@@@entt@@QEBA?A_PVEntityId@@@Z',
     '?getBlock@BlockSource@@UEBAAEBVBlock@@AEBVBlockPos@@@Z',
+    '?onConnectionClosed@NetworkHandler@@EEAAXAEBVNetworkIdentifier@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z',
 ] as const;
 
 export const proc = pdb.getList(
