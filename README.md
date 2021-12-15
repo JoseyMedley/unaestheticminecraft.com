@@ -31,6 +31,7 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
 ## Usage
 * Requirements
     * [node.js](https://nodejs.org/)
+    * [GIT](https://git-scm.com/download)
     * Wine (if using Linux)
 * Recommended  
     * [VSCode](https://code.visualstudio.com/)
