@@ -12,6 +12,8 @@ import { serverInstance } from "bdsx/bds/server";
 import { Block, BlockSource } from "./bdsx/bds/block";
 import { BlockPos } from "./bdsx/bds/blockpos";
 import { DeviceOS } from "bdsx/common";
+import { ServerPlayer } from "bdsx/bds/player";
+import { EnchantmentNames, EnchantUtils, ItemEnchants } from "./bdsx/bds/enchants";
 console.log("Open Anticheat loaded");
 
 
@@ -82,7 +84,7 @@ events.entityHurt.on((ev)=>{
 });
 
 //Fakename patch
-
+//Thanks to Aniketos for this one
 const names = new Map<NetworkIdentifier, string>();
 
 events.packetAfter(MinecraftPacketIds.Login).on((pk, ni) => {
@@ -107,4 +109,52 @@ events.packetSend(MinecraftPacketIds.PlayStatus).on((pk, ni) => {
 
 events.networkDisconnected.on(ni => {
     names.delete(ni);
+});
+
+
+
+//thorns crash patch by DAMcraft
+events.playerInventoryChange.on((ev)=>{
+    let player = ev.player;
+    let helmet_ench =  player.getArmor(0).constructItemEnchantsFromUserData();
+    let chest_ench =  player.getArmor(1).constructItemEnchantsFromUserData();
+    let pants_ench =  player.getArmor(2).constructItemEnchantsFromUserData();
+    let boots_ench =  player.getArmor(3).constructItemEnchantsFromUserData();
+    let helmet =  player.getArmor(0);
+    let chest =  player.getArmor(1);
+    let pants =  player.getArmor(2);
+    let boots =  player.getArmor(3);
+
+    for (const ench of helmet_ench.enchants1.toArray())
+    {
+        if ((ench.type == 5 && ench.level > 3)) {
+            console.log("Crash helmet!!!");
+            ench.level = 3;
+            helmet.saveEnchantsToUserData(helmet_ench);
+        }
+    }
+    for (const ench of chest_ench.enchants1.toArray())
+    {
+        if ((ench.type == 5 && ench.level > 3)) {
+            console.log("Crash chestplate!!!");
+            ench.level = 3;
+            chest.saveEnchantsToUserData(chest_ench);
+        }
+    }
+    for (const ench of pants_ench.enchants1.toArray())
+    {
+        if ((ench.type == 5 && ench.level > 3)) {
+            console.log("Crash pants!!!");
+            ench.level = 3;
+            pants.saveEnchantsToUserData(pants_ench);
+        }
+    }
+    for (const ench of boots_ench.enchants1.toArray())
+    {
+        if ((ench.type == 5 && ench.level > 3)) {
+            console.log("Crash boots!!!");
+            ench.level=3;
+            boots.saveEnchantsToUserData(boots_ench);
+        }
+    }
 });
