@@ -62,6 +62,7 @@ const symbols = [
     'Actor::hasTag',
     'Actor::removeTag',
     'Actor::setNameTag',
+    'Actor::setNameTagVisible',
     'Actor::hurt',
     'Actor::despawn',
     'Actor::getArmor',
@@ -351,6 +352,8 @@ const symbols = [
     'ItemStackBase::saveEnchantsToUserData',
     'BlockEventCoordinator::sendBlockDestructionStarted',
     'Level::getCurrentTick',
+    'Player::getDestroySpeed',
+    'Player::canDestroy'
 ] as const;
 
 // decorated symbols
