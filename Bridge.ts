@@ -6,7 +6,7 @@ const path = require('path');
 // Create config json if it doesn't exist
 if (!fs.existsSync("./configs/Discord-Chatter/config.json") ) {
     const defaultConfig = {
-        "token": "ODc1MzY4NDczMDM4MDQ5MzMx.YRUgaw.A-OjOt9r4s9e3R6_-0wm_6YpmCU",
+        "token": "insert token here",
         "chanID": "920529674998804530",
         "BotEnabled": true,
         "PostDiscordMessagesToConsole": true,
