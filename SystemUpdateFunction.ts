@@ -7,6 +7,7 @@ var Multiplier = [1,-1];
 
 console.log("SystemUpdateFunction loaded");
 system.executeCommand("/gamerule showcoordinates true", () => {});
+//var counter = 0;
 system.update = function () {
 
     // changes spawn location to random point within the specified radius
@@ -18,8 +19,6 @@ system.update = function () {
     SpawnCommand= SpawnCommand + String(newSpawnPointX) + " 64 " + String(newSpawnPointZ);
     system.executeCommand(SpawnCommand, () => {});
     system.executeCommand("/gamerule spawnRadius 128", () => {});
-
-
 
     // remove simple illegals from player inventories and kill illegal entities
     system.executeCommand("/kill @e[type=npc]", () => {});
@@ -33,5 +32,15 @@ system.update = function () {
     system.executeCommand("/clear @a[tag=!admin] mob_spawner", () => {});
     system.executeCommand("/clear @a[tag=!admin] jigsaw", () => {});
 
-
+    //patch GMC
+    system.executeCommand("/gamemode s @a[tag=!admin]", () => {});
+    
+    //doop
+    /*
+    counter = counter + 1;
+    if (counter >= 20){
+        system.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", () => {});
+        counter = 0;
+    }
+    */
 };
