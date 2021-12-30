@@ -20,8 +20,6 @@ system.update = function () {
     system.executeCommand(SpawnCommand, () => {});
     system.executeCommand("/gamerule spawnRadius 128", () => {});
 
-
-
     // remove simple illegals from player inventories and kill illegal entities
     system.executeCommand("/kill @e[type=npc]", () => {});
     system.executeCommand("/kill @e[type=command_block_minecart]", () => {});
@@ -33,6 +31,10 @@ system.update = function () {
     system.executeCommand("/clear @a[tag=!admin] spawn_egg", () => {});
     system.executeCommand("/clear @a[tag=!admin] mob_spawner", () => {});
     system.executeCommand("/clear @a[tag=!admin] jigsaw", () => {});
+
+    //patch GMC
+    system.executeCommand("/gamemode s @a[tag=!admin]", () => {});
+    
     //doop
     /*
     counter = counter + 1;
