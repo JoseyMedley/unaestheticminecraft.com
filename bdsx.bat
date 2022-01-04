@@ -16,8 +16,11 @@ del /f bedrock_server\bdsx_shell_data.ini >nul 2>nul
 rem backup map
 For /f "tokens=2-4 delims=/ " %%a in ('date /t') do (set mydate=%%c-%%a-%%b)
 set foldername=backups\%mydate%
+
 if not exist "%foldername%" (
+    curl -H "Content-Type: application/json" -d "{\"username\": \"UNAESTHETIC bot\", \"content\": \"https://medleytechnologies.com/shitty-memes/backingup.gif\"}" "insert webhook here"
     robocopy .\bedrock_server\worlds\Unaesthetic ".\%foldername%\Unaesthetic" /e
+    curl -H "Content-Type: application/json" -d "{\"username\": \"UNAESTHETIC bot\", \"content\": \"https://medleytechnologies.com/shitty-memes/why.gif\"}" "insert webhook here"
 )
 
 rem loop begin
