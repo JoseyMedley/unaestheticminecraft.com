@@ -283,6 +283,7 @@ const symbols = [
     'Player::startSwimming',
     'RakNetInstance::getPort',
     'ScoreboardIdentityRef::removeFromObjective',
+    'ActorDamageSource::ActorDamageSource',
     'ActorDamageSource::getDamagingEntityUniqueID',
     'ActorDamageSource::setCause',
     'Player::inventoryChanged',
@@ -355,6 +356,8 @@ const symbols = [
     'Level::getCurrentTick',
     'Player::getDestroySpeed',
     'Player::canDestroy',
+    'Player::addExperience',
+    'Player::getXpNeededForNextLevel',
 ] as const;
 
 // decorated symbols

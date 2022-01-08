@@ -1,4 +1,3 @@
-import { Config } from "./config";
 import { createAbstractObject } from "./abstractobject";
 import { asmcode } from "./asm/asmcode";
 import { asm, Register } from "./assembler";
@@ -9,6 +8,7 @@ import { ServerLevel } from "./bds/level";
 import { proc, procHacker } from "./bds/proc";
 import { capi } from "./capi";
 import { CANCEL, Encoding } from "./common";
+import { Config } from "./config";
 import { bedrock_server_exe, cgate, ipfilter, jshook, MultiThreadQueue, StaticPointer, uv_async, VoidPointer } from "./core";
 import { decay } from "./decay";
 import { dll } from "./dll";
@@ -127,6 +127,13 @@ function patchForStdio():void {
 }
 
 function _launch(asyncResolve:()=>void):void {
+    // check memory corruption for debug core
+    if (cgate.memcheck != null) {
+        setInterval(()=>{
+            cgate.memcheck!();
+        }, 5000);
+    }
+
     ipfilter.init(ip=>{
         console.error(`[BDSX] traffic exceeded threshold for IP: ${ip}`);
     });
@@ -408,7 +415,7 @@ export namespace bedrockServer
         const ctx = createCommandContext(command, origin);
         const res = bd_server.serverInstance.minecraft.getCommands().executeCommand(ctx, mute);
 
-        ctx.destruct();
+        // ctx: no need to destruct, it's destructed by executeCommand.
         origin.destruct();
 
         return res;
