@@ -19,8 +19,8 @@ var illegalBlocks = ["minecraft:invisiblebedrock", "minecraft:end_portal_frame",
 "minecraft:command_block", "minecraft:repeating_command_block", "minecraft:chain_command_blocks", "minecraft:bedrock", "minecraft:movingBlock"];
 var illegalItems = [];
 
-//trying to destroy illegal entities
-//probably not working
+//illegal entities patch
+//working
 events.entityCreated.on((ev)=>{
     var entity = ev.entity;
     var Id = entity.getEntity().__identifier__;
