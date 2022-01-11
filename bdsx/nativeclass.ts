@@ -17,9 +17,9 @@ export type KeysWithoutFunction<T> = {[key in keyof T]:T[key] extends (...args:a
 
 type StructureFields<T> = {[key in KeysWithoutFunction<T>]?:Type<T[key]>|[Type<T[key]>, number]};
 
-const isNativeClass = Symbol();
-const isSealed = Symbol();
-const fieldmap = Symbol();
+const isNativeClass = Symbol('isNativeClass');
+const isSealed = Symbol('isSealed');
+const fieldmap = Symbol('fieldmap');
 
 function accessor(key:string|number):string {
     if (typeof key === 'number') return `[${key}]`;
@@ -773,9 +773,9 @@ export declare class MantleClass extends NativeClass {
 }
 exports.MantleClass = NativeClass;
 
-function makeReference<T extends NativeClass>(type:{new():T}):NativeType<T> {
+function makeReference<T extends NativeClass>(type:{new():T, symbol?:string}):NativeType<T> {
     const clazz = type as NativeClassType<T>;
-    return new NativeType<T>(type.name+'*', 8, 8,
+    return new NativeType<T>((type.symbol || type.name)+'*', type.name+'*', 8, 8,
         clazz.isTypeOf,
         clazz.isTypeOfWeak,
         (stackptr, offset)=>clazz[makefunc.getFromParam](stackptr, offset),
