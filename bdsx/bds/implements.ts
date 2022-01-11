@@ -47,6 +47,12 @@ import { BinaryStream } from "./stream";
 
 // avoiding circular dependency
 
+// utils
+namespace CommandUtils {
+    export const createItemStack = procHacker.js("CommandUtils::createItemStack", ItemStack, null, ItemStack, CxxString, int32_t, int32_t);
+    export const spawnEntityAt = procHacker.js("CommandUtils::spawnEntityAt", Actor, null, BlockSource, Vec3, ActorDefinitionIdentifier, StaticPointer, VoidPointer);
+}
+
 // level.ts
 Level.prototype.createDimension = procHacker.js("Level::createDimension", Dimension, {this:Level}, int32_t);
 Level.prototype.destroyBlock = procHacker.js("Level::destroyBlock", bool_t, {this:Level}, BlockSource, BlockPos, bool_t);
@@ -84,6 +90,7 @@ Level.prototype.setTime = function(time: number):void {
     for (const player of serverInstance.getPlayers()) {
         player.sendNetworkPacket(packet);
     }
+    packet.dispose();
 };
 
 Level.prototype.getPlayers = function() {
@@ -106,6 +113,10 @@ Level.prototype.getEntities = function() {
     }
     return out;
 };
+
+Level.prototype.getRuntimeEntity = procHacker.js("Level::getRuntimeEntity", Actor, {this:Level}, ActorRuntimeID, bool_t);
+Level.prototype.getRuntimePlayer = procHacker.js("Level::getRuntimePlayer", Player, {this:Level}, ActorRuntimeID);
+
 Level.prototype.getTime = procHacker.js("Level::getTime", int64_as_float_t, {this:Level});
 Level.prototype.getCurrentTick = procHacker.js("Level::getCurrentTick", int64_as_float_t.ref(), {this:Level});// You can run the server for 1.4202551784875594e+22 years till it exceeds the max safe integer
 
@@ -164,7 +175,6 @@ Actor.abstract({
     vftable: VoidPointer,
     ctxbase: EntityContextBase,
 });
-const CommandUtils$spawnEntityAt = procHacker.js("CommandUtils::spawnEntityAt", Actor, null, BlockSource, Vec3, ActorDefinitionIdentifier, StaticPointer, VoidPointer);
 Actor.summonAt = function(region: BlockSource, pos: Vec3, type: ActorDefinitionIdentifier, id:ActorUniqueID|int64_as_float_t, summoner?:Actor):Actor {
     const ptr = new AllocatedPointer(8);
     switch (typeof id) {
@@ -175,7 +185,7 @@ Actor.summonAt = function(region: BlockSource, pos: Vec3, type: ActorDefinitionI
         ptr.setBin(id);
         break;
     }
-    return CommandUtils$spawnEntityAt(region, pos, type, ptr, summoner ?? new VoidPointer());
+    return CommandUtils.spawnEntityAt(region, pos, type, ptr, summoner ?? new VoidPointer());
 };
 (Actor.prototype as any)._getArmorValue = procHacker.js("Mob::getArmorValue", int32_t, {this:Actor});
 Actor.prototype.getAttributes = procHacker.js('Actor::getAttributes', BaseAttributeMap.ref(), {this:Actor, structureReturn: true});
@@ -214,7 +224,7 @@ Actor.prototype.getMaxHealth = procHacker.js("Actor::getMaxHealth", int32_t, { t
 (Actor.prototype as any).hurt_ = procHacker.js("Actor::hurt", bool_t, {this:Actor}, ActorDamageSource, int32_t, bool_t, bool_t);
 
 Actor.prototype.setStatusFlag = procHacker.js("?setStatusFlag@Actor@@QEAA_NW4ActorFlags@@_N@Z", bool_t, {this:Actor}, int32_t, bool_t);
-Actor.prototype.getStatusFlag = procHacker.js("Actor::getStatusFlag", bool_t, {this:Actor}, int32_t);
+Actor.prototype.getStatusFlag = procHacker.js("?getStatusFlag@Actor@@QEBA_NW4ActorFlags@@@Z", bool_t, {this:Actor}, int32_t);
 
 Actor.prototype.getLevel = procHacker.js("Actor::getLevel", Level, {this:Actor});
 
@@ -562,10 +572,9 @@ ItemStack.prototype.isWearableItem = procHacker.js("ItemStackBase::isWearableIte
 ItemStack.prototype.getAttackDamage = procHacker.js("ItemStackBase::getAttackDamage", int32_t, {this:ItemStack});
 ItemStack.prototype.constructItemEnchantsFromUserData = procHacker.js("ItemStackBase::constructItemEnchantsFromUserData", ItemEnchants, {this:ItemStack, structureReturn: true});
 ItemStack.prototype.saveEnchantsToUserData = procHacker.js("ItemStackBase::saveEnchantsToUserData", void_t, {this:ItemStack}, ItemEnchants);
-const CommandUtils$createItemStack = procHacker.js("CommandUtils::createItemStack", ItemStack, null, ItemStack, CxxString, int32_t, int32_t);
 ItemStack.constructWith = function(itemName: CxxString, amount: int32_t = 1, data: int32_t = 0):ItemStack {
     const itemStack = ItemStack.construct();
-    CommandUtils$createItemStack(itemStack, itemName, amount, data);
+    CommandUtils.createItemStack(itemStack, itemName, amount, data);
     return itemStack;
 };
 ItemStack.fromDescriptor = procHacker.js("ItemStack::fromDescriptor", ItemStack, {structureReturn:true}, NetworkItemStackDescriptor, BlockPalette, bool_t);

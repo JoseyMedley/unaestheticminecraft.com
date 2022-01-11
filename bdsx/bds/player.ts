@@ -367,6 +367,27 @@ export class Player extends Actor {
     }
 }
 
+namespace RawTextObject {
+    export interface Text {
+        text: string;
+    }
+    export interface Translate {
+        translte: string;
+        with?: string[];
+    }
+    export interface Score {
+        score: {
+            name: string;
+            objective: string;
+        };
+    }
+    export type Properties = Text | Translate | Score;
+}
+
+interface RawTextObject {
+    rawtext: RawTextObject.Properties[];
+}
+
 export class ServerPlayer extends Player {
     /** @deprecated Use `this.getNetworkIdentifier()` instead */
     get networkIdentifier(): NetworkIdentifier {
@@ -458,6 +479,7 @@ export class ServerPlayer extends Player {
         pk.name = author;
         pk.message = message;
         this.sendNetworkPacket(pk);
+        pk.dispose();
     }
 
     /**
@@ -469,10 +491,26 @@ export class ServerPlayer extends Player {
      */
     sendWhisper(message: string, author: string): void {
         const pk = TextPacket.create();
-        pk.type = TextPacket.Types.Chat;
+        pk.type = TextPacket.Types.Whisper;
         pk.name = author;
         pk.message = message;
         this.sendNetworkPacket(pk);
+        pk.dispose();
+    }
+
+    /**
+     * Sends a JSON-Object to the player
+     * For the format for that object, reference:
+     * @see https://minecraft.fandom.com/wiki/Commands/tellraw
+     *
+     * @param object JSON-Object to encode and send
+     */
+    sendTextObject(object:RawTextObject): void {
+        const pk = TextPacket.create();
+        pk.type = TextPacket.Types.TextObject;
+        pk.message = JSON.stringify(object);
+        this.sendNetworkPacket(pk);
+        pk.dispose();
     }
 
     /**
@@ -485,6 +523,7 @@ export class ServerPlayer extends Player {
         pk.type = TextPacket.Types.Raw;
         pk.message = message;
         this.sendNetworkPacket(pk);
+        pk.dispose();
     }
 
     /**
@@ -503,6 +542,7 @@ export class ServerPlayer extends Player {
         }
         pk.needsTranslation = true;
         this.sendNetworkPacket(pk);
+        pk.dispose();
     }
 
     /**
@@ -520,6 +560,7 @@ export class ServerPlayer extends Player {
         }
         pk.needsTranslation = true;
         this.sendNetworkPacket(pk);
+        pk.dispose();
     }
 
     /**
@@ -538,6 +579,7 @@ export class ServerPlayer extends Player {
         }
         pk.needsTranslation = true;
         this.sendNetworkPacket(pk);
+        pk.dispose();
     }
 
     /**
@@ -553,6 +595,7 @@ export class ServerPlayer extends Player {
         pk.params.push(...params);
         pk.needsTranslation = true;
         this.sendNetworkPacket(pk);
+        pk.dispose();
     }
 
     /**
