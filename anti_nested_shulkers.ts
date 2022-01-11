@@ -50,31 +50,31 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
         // console.log(diff)
         onplayers.push(element)
         distances.push(diff)
-    })
+    });
     if (onplayers.length != distances.length){console.log("Somehow more distances got recorded then players.")} //Never happened to me before, but you never know
     else {
         let index = indexOfMax(distances)
         let nearest_player: ServerPlayer = onplayers[index]
-        
+
         const region = nearest_player.getRegion();
         const bpos =  BlockPos.create(x, y, z)
         const blockEntity = region.getBlockEntity(bpos);
         if (region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:undyed_shulker_box" || region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:shulker_box"){
-        const tag = blockEntity.constructAndSave();
-                {
-                    const items = tag.get("Items") as ListTag
-                    for (const e of items.data as CxxVector<CompoundTag>) {
-                        if (items != (null || undefined)){
+            if (blockEntity != null) {
+                const tag = blockEntity.constructAndSave();
+                const items = tag.get("Items") as ListTag
+                for (const e of items.data as CxxVector<CompoundTag>) {
+                    if (items != (null || undefined)){
                         const Name = ""+e.get("Name");
-                        const Slot = (""+e.get("Slot")).length; 
+                        const Slot = (""+e.get("Slot")).length;
                         if (Name == "minecraft:shulker_box"){
                             console.log("Cleared nested shulker from shulker at "+x+" "+y+" "+z+" (At slot "+Slot+")")
                             system.executeCommand(`/replaceitem block ${x} ${y} ${z} slot.container `+Slot+" stone", () => {});
                         }
-
-                    }}
+                    }
                 }
                 tag.destruct();
             }
+        }
     }
-})
+});
