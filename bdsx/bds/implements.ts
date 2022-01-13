@@ -31,7 +31,7 @@ import { GameRule, GameRuleId, GameRules } from "./gamerules";
 import { HashedString } from "./hashedstring";
 import { ComponentItem, Container, Inventory, InventoryAction, InventorySource, InventoryTransaction, InventoryTransactionItemGroup, Item, ItemStack, NetworkItemStackDescriptor, PlayerInventory, PlayerUIContainer } from "./inventory";
 import { ActorFactory, AdventureSettings, BlockPalette, Level, LevelData, ServerLevel, Spawner, TagRegistry } from "./level";
-import { ByteArrayTag, ByteTag, CompoundTag, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, ShortTag, StringTag, Tag, TagMemoryChunk, TagPointer } from "./nbt";
+import { ByteArrayTag, ByteTag, CompoundTag, CompoundTagVariant, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, ShortTag, StringTag, Tag, TagMemoryChunk, TagPointer } from "./nbt";
 import { networkHandler, NetworkHandler, NetworkIdentifier, ServerNetworkHandler } from "./networkidentifier";
 import { ExtendedStreamReadResult, Packet } from "./packet";
 import { AdventureSettingsPacket, AttributeData, GameRulesChangedPacket, PlayerListPacket, SetTimePacket, UpdateAttributesPacket, UpdateBlockPacket } from "./packets";
@@ -747,7 +747,6 @@ EnchantUtils.hasCurse = procHacker.js("EnchantUtils::hasCurse", bool_t, null, It
 EnchantUtils.hasEnchant = procHacker.js("EnchantUtils::hasEnchant", bool_t, null, int16_t, ItemStack);
 
 // nbt.ts
-const tagMap = new Map<string, Tag>();
 (Tag as any)._toVariantType = function(ptr:StaticPointer|null):Tag|null {
     if (ptr === null) return null;
     switch (Tag.prototype.getId.call(ptr)) {
@@ -777,13 +776,18 @@ const tagMap = new Map<string, Tag>();
         return ptr.as(EndTag);
     }
 };
-Tag.all = function():IterableIterator<Tag> {
-    return tagMap.values();
-};
 
-(Tag.prototype as any)._toString = makefunc.js([0x20], CxxString, {this:Tag}, CxxStringWrapper);
+const Tag$toString = makefunc.js([0x20], CxxString, {this:Tag}, CxxString);
+Tag.prototype.toString = function() {
+    return Tag$toString.call(this, "");
+};
 Tag.prototype.getId = makefunc.js([0x28], uint8_t, {this:Tag});
 Tag.prototype.equals = makefunc.js([0x30], bool_t, {this:Tag}, Tag);
+// Tag.prototype.copy = makefunc.js([0x48], TagPointer, {this:Tag});
+const Tag$scalarDeletingDestructor = makefunc.js([0], void_t, {this:Tag}, int32_t);
+Tag.prototype[NativeType.dtor] = function() {
+    Tag$scalarDeletingDestructor.call(this, 0);
+};
 
 EndTag.constructWith = function():EndTag {
     const tag = EndTag.construct();
@@ -820,7 +824,7 @@ ByteArrayTag.constructWith = function(data:Uint8Array):IntArrayTag {
 };
 StringTag.constructWith = procHacker.js("??0StringTag@@QEAA@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z", StringTag, {structureReturn:true}, CxxString);
 const ListTag$ListTag = procHacker.js("??0ListTag@@QEAA@XZ", ListTag, {structureReturn:true});
-(ListTag as any).constructWith = function(data: Tag[] = []):ListTag {
+(ListTag as any).constructWith = function(data: Tag[]):ListTag {
     const tag = ListTag$ListTag();
     for (const e of data) {
         tag.push(e);
@@ -841,6 +845,8 @@ IntArrayTag.constructWith = function(data:Int32Array):IntArrayTag {
     tag.data.fromInt32Array(data);
     return tag;
 };
+
+CompoundTagVariant[NativeType.dtor] = procHacker.js("CompoundTagVariant::~CompoundTagVariant", void_t, {this:CompoundTagVariant});
 
 const ListTag$add = procHacker.js("ListTag::add", VoidPointer, {this:ListTag}, TagPointer);
 ListTag.prototype.push = function(tag:Tag):void_t {

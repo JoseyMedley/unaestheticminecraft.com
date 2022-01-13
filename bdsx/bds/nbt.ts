@@ -6,7 +6,7 @@ import { CxxVector } from "../cxxvector";
 import { makefunc } from "../makefunc";
 import { MantleClass, nativeClass, NativeClass, nativeField } from "../nativeclass";
 import { bin64_t, CxxString, float32_t, float64_t, int16_t, int32_t, int64_as_float_t, NativeType, uint8_t } from "../nativetype";
-import { CxxStringWrapper, Wrapper } from "../pointer";
+import { Wrapper } from "../pointer";
 import util = require("util");
 
 @nativeClass()
@@ -66,11 +66,8 @@ export class Tag extends NativeClass {
     @nativeField(VoidPointer)
     vftable:VoidPointer;
 
-    protected _toString(str:CxxStringWrapper):string {
-        abstract();
-    }
     toString():string {
-        return this._toString(CxxStringWrapper.construct());
+        abstract();
     }
     getId():Tag.Type {
         abstract();
@@ -88,9 +85,6 @@ export class Tag extends NativeClass {
     }
     static [makefunc.getFromParam](stackptr:StaticPointer, offset?:number):Tag|null {
         return Tag._toVariantType(stackptr.getNullablePointer(offset));
-    }
-    static all():IterableIterator<Tag> {
-        abstract();
     }
     private static _toVariantType(ptr:StaticPointer|null):Tag|null {
         abstract();
@@ -115,7 +109,7 @@ export namespace Tag {
 }
 
 export const TagPointer = Wrapper.make(Tag.ref());
-export type TagPointer = Wrapper<Tag>;
+export type TagPointer<T extends Tag = Tag> = Wrapper<T>;
 
 @nativeClass(0x08)
 export class EndTag extends Tag {
@@ -260,7 +254,7 @@ export class ListTag<T extends Tag = Tag> extends Tag {
         abstract();
     }
 
-    static constructWith<T extends Tag = Tag>(data?:T[]):ListTag<T> {
+    static constructWith<T extends Tag = Tag>(data:T[]):ListTag<T> {
         abstract();
     }
 
@@ -269,8 +263,24 @@ export class ListTag<T extends Tag = Tag> extends Tag {
     }
 }
 
-@nativeClass(0x40)
-export class CompoundTagVariant extends Tag {
+@nativeClass(0x30)
+export class CompoundTagVariant<T extends Tag = Tag> extends NativeClass {
+    @nativeField(VoidPointer, {ghost: true})
+    vftable:VoidPointer;
+    @nativeField(Tag)
+    tagStorage:T;
+    @nativeField(uint8_t, 0x28)
+    tagType:Tag.Type;
+
+    toString():string {
+        return this.tagStorage.toString();
+    }
+    getId():Tag.Type {
+        return this.tagStorage.getId();
+    }
+    equals(tag:T):boolean {
+        return this.tagStorage.equals(tag);
+    }
 }
 
 @nativeClass(0x28)
@@ -279,7 +289,7 @@ export class CompoundTag extends Tag {
     data:CxxMap<CxxString, CompoundTagVariant>;
 
     get<T extends Tag>(key:string):T|null {
-        return this.data.get(key) as T;
+        return this.data.get(key)?.tagStorage as T;
     }
     set<T extends Tag>(key:string, tag:T):T {
         abstract();
@@ -298,14 +308,14 @@ export class CompoundTag extends Tag {
         abstract();
     }
 
-    [NativeType.ctor_copy](from:CompoundTag):void {
+    [NativeType.ctor_copy](from:this):void {
         for (const [k, v] of from.data.entries()) {
-            this.set(k, v);
+            this.set(k, v.tagStorage);
         }
     }
 
     [util.inspect.custom](depth:number, options:Record<string, any>):unknown {
-        const map = new Map<CxxString, Tag>(this.data.toArray());
+        const map = new Map<CxxString, Tag>(this.data.toArray().map(([k, v]) => [k, v.tagStorage]));
         return `CompoundTag ${util.inspect(map, options).substr(4)}`;
     }
 }

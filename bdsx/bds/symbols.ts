@@ -405,6 +405,7 @@ const symbols = [
     'Player::canDestroy',
     'Player::addExperience',
     'Player::getXpNeededForNextLevel',
+    'CompoundTagVariant::~CompoundTagVariant',
 ] as const;
 
 // decorated symbols
