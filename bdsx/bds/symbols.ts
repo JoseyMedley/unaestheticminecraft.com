@@ -331,7 +331,6 @@ const symbols = [
     'RakNetInstance::getPort',
     'ScoreboardIdentityRef::removeFromObjective',
     'ActorDamageSource::ActorDamageSource',
-    'ActorDamageSource::getDamagingEntityUniqueID',
     'ActorDamageSource::setCause',
     'Player::inventoryChanged',
     'ItemStackBase::getMaxStackSize',
@@ -405,6 +404,7 @@ const symbols = [
     'Player::canDestroy',
     'Player::addExperience',
     'Player::getXpNeededForNextLevel',
+    'CompoundTagVariant::~CompoundTagVariant',
 ] as const;
 
 // decorated symbols

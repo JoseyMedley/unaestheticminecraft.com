@@ -128,7 +128,7 @@ export class MobEffectInstance extends NativeClass {
         const ptr = new TagPointer(true);
         ptr.value = tag;
         this._save(ptr);
-        tag.construct(ptr.value as CompoundTag);
+        tag.construct(<CompoundTag>ptr.value);
         ptr.value.destruct();
         ptr.destruct();
     }

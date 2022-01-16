@@ -76,7 +76,10 @@ export namespace events {
     export const entityHurt = new Event<(event: EntityHurtEvent) => void | CANCEL>();
     /** Not cancellable */
     export const entityHealthChange = new Event<(event: EntityHeathChangeEvent) => void>();
-    /** Not cancellable */
+    /**
+     * Not cancellable.
+     * it can be occured multiple times even it already died.
+     */
     export const entityDie = new Event<(event: EntityDieEvent) => void>();
     /** Not cancellable */
     export const entitySneak = new Event<(event: EntitySneakEvent) => void>();
@@ -88,7 +91,7 @@ export namespace events {
     export const entityStopRiding = new Event<(event: EntityStopRidingEvent) => void | CANCEL>();
     /** Cancellable */
     export const playerAttack = new Event<(event: PlayerAttackEvent) => void | CANCEL>();
-    /** Cancellable but only when player is in container screens*/
+    /** Cancellable */
     export const playerDropItem = new Event<(event: PlayerDropItemEvent) => void | CANCEL>();
     /** Not cancellable */
     export const playerInventoryChange = new Event<(event: PlayerInventoryChangeEvent) => void | CANCEL>();
