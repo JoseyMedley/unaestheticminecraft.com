@@ -6,7 +6,7 @@ var players_to_verified: string[] = [];
 // Create config json if it doesn't exist
 if (!fs.existsSync("./configs/Discord-Chatter/config.json") ) {
     const defaultConfig = {
-        "token": "ODc1MzY4NDczMDM4MDQ5MzMx.YRUgaw.hw4NlMiBYWVn_TnqGh0z3diUeY8",
+        "token": "insert token here",
         "chanID": "920529674998804530",
         "BotEnabled": true,
         "PostDiscordMessagesToConsole": true,
