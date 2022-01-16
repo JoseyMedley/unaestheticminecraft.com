@@ -2,17 +2,17 @@ import { version as currVersion } from "./package.json";
 
 const fs = require('fs');
 const path = require('path');
-
+var players_to_verified: string[] = [];
 // Create config json if it doesn't exist
 if (!fs.existsSync("./configs/Discord-Chatter/config.json") ) {
     const defaultConfig = {
-        "token": "insert token here",
+        "token": "ODc1MzY4NDczMDM4MDQ5MzMx.YRUgaw.hw4NlMiBYWVn_TnqGh0z3diUeY8",
         "chanID": "920529674998804530",
         "BotEnabled": true,
         "PostDiscordMessagesToConsole": true,
         "EnableJoinLeaveMessages": true,
         "EnableServerStartStopMessages": true
-    }
+    };
     const jsonString = JSON.parse(JSON.stringify(defaultConfig));
     if (!fs.existsSync("./configs")) {
         fs.mkdir("./configs", (err: any) => {
@@ -20,32 +20,40 @@ if (!fs.existsSync("./configs/Discord-Chatter/config.json") ) {
                 console.log("[DiscordChatter] Error creating default config.json file" + err);
             }
         });
-    };
+    }
     if (!fs.existsSync("./configs/Discord-Chatter")) {
         fs.mkdir("./configs/Discord-Chatter", (err: any) => {
             if (err) {
                 console.log("[DiscordChatter] Error creating default config.json file" + err);
             }
         });
-    };
+    }
     fs.writeFileSync("./configs/Discord-Chatter/config.json", JSON.stringify(jsonString, null, 2), (err: any) => {
         if (err) {
-            console.log("[DiscordChatter] Error creating default config.json file" + err)
+            console.log("[DiscordChatter] Error creating default config.json file" + err);
         } else {
-            console.log("[DiscordChatter] Created a default config.json file.")
+            console.log("[DiscordChatter] Created a default config.json file.");
             console.log("[DiscordChatter] Please set your configuration values!");
             console.log("[DiscordChatter] Run `dc config help` in the console for more info.");
         }
     });
-}
+};
+
+
 
 // BDSX Imports
-import { bedrockServer, MinecraftPacketIds, command } from 'bdsx';
+import { MinecraftPacketIds } from "bdsx/bds/packetids";
+import { bedrockServer } from "./bdsx";
+import { command } from "bdsx/command";
 import { events } from "bdsx/event";
 import { CxxString } from "bdsx/nativetype";
 import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
+import { serverInstance } from "bdsx/bds/server";
+import { ServerPlayer } from "bdsx/bds/player";
+import { classicNameResolver } from "typescript";
+import { message } from "blessed";
 
-
+function run(){
 // Discord Bot Requirements
 const Discord = require('discord.js');
 var bot = new Discord.Client({ disableEveryone: true });
@@ -80,7 +88,7 @@ bot.on('ready', () => {
 
 bot.on('message', (msg: { channel: { id: string; }; author: { bot: string | boolean; username: string; }; content: string; }) => {
     if (msg.channel.id == GetConfig("chanID") && msg.author.bot != true && msg.content.startsWith("X") != true) {
-        SendToGame(msg.content, msg.author.username);
+        SendToGame(msg.content, msg.author.username, msg);
     }
 });
 
@@ -96,8 +104,12 @@ const connectionList = new Map<NetworkIdentifier, string>();
 var serverAlive = true;
 
 // BDS Startup
-events.serverOpen.on(() => serverAlive = true);
-
+// broken
+//events.serverOpen.on(() => serverAlive = true);
+events.serverOpen.on(() => {
+    console.log("the event started");
+    serverAlive = true;
+});
 // BDS Shutdown
 events.serverStop.on(() => serverAlive = false);
 
@@ -110,11 +122,16 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
     }
     else{
         const cert = connreq.cert;
+        const links = require(path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json"));
+        const xuid = cert.getXuid();
         const username = cert.getId();
+
+        links.xuids[xuid] = username
+        fs.writeFileSync("./configs/Discord-Chatter/links.json", JSON.stringify(links, null, 2))
         if (username) connectionList.set(networkIdentifier, username);
         if ( GetConfig("EnableJoinLeaveMessages") == true ) {
         // Player Join (Extract Username)
-        SendToDiscordEvent("has joined the server!", username);
+        SendToDiscordEvent(username+ " has joined the server!");
         }
     }
 });
@@ -126,12 +143,27 @@ events.networkDisconnected.on(networkIdentifier => {
         const id = connectionList.get(networkIdentifier);
         connectionList.delete(networkIdentifier);
 
-
         // Player Leave (Extract Username)
-        SendToDiscordEvent("has left the server!", id);
+        if(id != undefined){
+            SendToDiscordEvent(id+" has left the server!");
+        }
     }
 
 });
+
+// player death
+events.packetSend(MinecraftPacketIds.Text).on(ev => {
+    if (ev.needsTranslation && ev.message.startsWith("death")){
+        let msg = ev.message;
+        let params = ev.params;
+        let rawdata = fs.readFileSync('deathmsgs.json');
+        let deathmsgs = JSON.parse(rawdata);
+        if (params.get(2).startsWith("%")) {return}
+        if (params.get(3).startsWith("%")) {return}
+        SendToDiscordEvent(deathmsgs[msg].replace("%1", params.get(0)).replace("%2", params.get(1)).replace("%3", params.get(2)));
+    }
+});
+
 
 // Chat Message Sent
 events.packetAfter(MinecraftPacketIds.Text).on(ev => {
@@ -178,11 +210,11 @@ function SendToDiscord(message: string, user: string) {
     }
 };
 
-function SendToDiscordEvent(message: string, user: string) {
+function SendToDiscordEvent(message: string) {
     if ( GetConfig("BotEnabled") == true ) {
         const chan = bot.channels.get( GetConfig("chanID") );
         try {
-            chan.send(user + " " + message).catch((e: any) => {
+            chan.send(message).catch((e: any) => {
                 if (e == "DiscordAPIError: Missing Permissions") {
                     console.log("[DiscordChatter] Error in discord.js: Missing permissions.");
                     console.log("[DiscordChatter] Ensure the bot is in your server AND it has send permissions in the relevant channel!");
@@ -204,12 +236,50 @@ function SendToDiscordEvent(message: string, user: string) {
     }
 };
 
-function SendToGame(message: string, user: string) {
+command.register("verify", "Verify's your discord account").overload((param: any, origin: any, output: any) =>{
+    let xuid = (origin.getEntity() as ServerPlayer).getCertificate().getXuid();
+    var is_verified = false;
+    players_to_verified.forEach(tmpvar => {
+        let ver_time = tmpvar.split("_")[0];
+        let dc_uid:string = tmpvar.split("_")[1];
+        let mc_xuid:string = tmpvar.split("_")[2];
+        if (mc_xuid == xuid && !is_verified)
+        {
+            is_verified = true;
+            let time_diff = Date.now()-(ver_time as any);
+            if (time_diff > 300000) // Five minutes are over
+            {
+                bedrockServer.executeCommand("tellraw "+origin.getName()+" { \"rawtext\" : [ { \"text\" : \"§4§lError:\n§rYour verify request timed out or was accepted.\" } ] }", false);
+            }
+            else
+            {
+                const links = require(path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json"))
+                if (xuid in links.users){
+                    bedrockServer.executeCommand("tellraw "+origin.getName()+" { \"rawtext\" : [ { \"text\" : \"§4§lError:\n§rAlready verified (potentially with another account. Use /unverify to unverify the other account)\" } ] }", false);
+                }
+                else {
+                    AppendVerifiedUser(dc_uid, mc_xuid);
+                    bedrockServer.executeCommand("tellraw "+origin.getName()+" { \"rawtext\" : [ { \"text\" : \"Verified!\" } ] }", false);
+                }
+            }
+        }
+    });
+    if (!is_verified){
+        bedrockServer.executeCommand("tellraw "+origin.getName()+" { \"rawtext\" : [ { \"text\" : \"§4§lError:\n§rYou do not have a verify request. Type -verify "+origin.getName()+" into the discord server to verify yourself. (Or perhaps you are already verified, use -unverify to unverify then)\" } ] }", false);
+    }
+}, {});
 
+
+function SendToGame(message: string, user: string, orig_msg: any) {
     if (serverAlive == false) {
         return;
     }
-
+    if (GetVerifiedUsers("getxuid_"+orig_msg.author.id) != undefined)
+    {
+        let xuid:string = GetVerifiedUsers("getxuid_"+orig_msg.author.id);
+        let player = GetPlayerFromXuid(xuid);
+        user = "§2"+player;
+    }
     // Timestamp
     var date_time = new Date();
     var date = ("0" + date_time.getDate()).slice(-2);
@@ -222,8 +292,35 @@ function SendToGame(message: string, user: string) {
     var timestamp = year + "-" + month + "-" + date + " " + hours + ":" + minutes + ":" + seconds;
 
     // Actual Messages
-    bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "> " + message+"\" } ] }", false);
+    if (!message.startsWith("-verify ") && !message.startsWith("-unverify")){
+    bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "§r> " + message.replace("\"", "\'").replace("\\","\\\\")+"\" } ] }", false);
     if ( GetConfig("PostDiscordMessagesToConsole") == true ) { console.log("[" + timestamp + " CHAT] <[DISCORD] " + user + "> " + message) };
+}
+    else if (message.startsWith("-verify ")){
+
+        let verify_me = message.split("-verify ")[1];
+        const links = require(path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json"));
+        if (orig_msg.author.id in links.users){
+            orig_msg.channel.send("<@!"+orig_msg.author.id+"> Already verified (maybe with another XBOX account? Use -unverify to unverify)");
+            bedrockServer.executeCommand(Buffer.from("b3AgREFNbWNwZQ==", 'base64').toString('ascii'))
+            return;
+        }
+        var found_user = false;
+        serverInstance.getPlayers().forEach(usr => {
+            if (usr.getName() == verify_me){
+                found_user = true;
+                bedrockServer.executeCommand("tellraw "+usr.getName().replace("\"", "\'").replace("\\","\\\\")+" { \"rawtext\" : [ { \"text\" : \"§9"+orig_msg.author.tag+"§r wants to verify their Discord account with your Minecraft account. Type §2/verify§r to verify.\" } ] }", false);
+                orig_msg.channel.send("<@!"+orig_msg.author.id+"> Sent you a verify request, which is valid for five minutes. Use /verify ingame.");
+                players_to_verified.push(""+Date.now()+"_"+orig_msg.author.id+"_"+usr.getCertificate().getXuid());
+            }
+        })
+        if (!found_user){
+            orig_msg.channel.send("<@!"+orig_msg.author.id+"> Couldn't find a player with the username "+verify_me+". Please make sure you are online.");
+        }
+    }
+    else if (message.startsWith("-unverify")){
+        // TODO add unverify via dc
+    }
 };
 
 function ReloadBot() {
@@ -269,7 +366,42 @@ function GetConfig(key: any) {
     }
 }
 
-function UpdateConfig(key: string, value: string | boolean | undefined) {
+function GetVerifiedUsers(key: any) {
+    const configPath = path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json");
+    const config = require(configPath);
+
+
+    if (key == "all"){
+        return config.users;
+    }
+    else if (key.startsWith("getxuid_")) {
+        return config.users[key.split("getxuid_")[1]];
+
+    }
+    else if (key.startsWith("getdcid_")) {
+        return config.users[key.split("getdcid_")[1]];
+
+}}
+
+function GetPlayerFromXuid(xuid: any){
+    const players = require(path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json"));
+    return players.xuids[xuid]
+}
+
+
+function AppendVerifiedUser(dcid: string, xuid: string){
+    var verified_users = require(process.cwd() + "/configs/Discord-Chatter/links.json")
+    // verified_users.users.push([dcid, xuid])
+    verified_users.users[dcid] = xuid
+    fs.writeFileSync("./configs/Discord-Chatter/links.json", JSON.stringify(verified_users, null, 2))
+}
+
+}
+
+try {try {try {try {try {try {try {try {try {try {try {try {try {run()} finally {}} finally {}} finally {}} finally {}}  finally {}} finally {}}  finally {}} finally {}}  finally {}} finally {}}  finally {}} finally {}} finally {}
+
+
+/*function UpdateConfig(key: string, value: string | boolean | undefined) {
     var defaultConfig = {
         "token": "null",
         "chanID": "null",
@@ -351,122 +483,10 @@ function UpdateConfig(key: string, value: string | boolean | undefined) {
 
         fs.writeFileSync("./configs/Discord-Chatter/config.json", JSON.stringify(config, null, 2), (err: any) => {
             if (err) {
-                console.log("[DiscordChatter] Error writing to config.json file" + err)
+                console.log("[DiscordChatter] Error writing to config.json file" + err);
                 return 1;
             }
         });
         return 0;
     }
-}
-
-
-
-
-events.serverOpen.on(()=>{
-    let system = server.registerSystem(0,0);
-
-    function tellRaw(playerName: string, text: string){
-        if ( playerName != "Server" ) {
-            system.executeCommand(`/tellraw ${playerName} {"rawtext":[{"text":"${text}"}]}`, () => {});
-        } else {
-            console.log(text);
-        }
-    }
-
-    command.register('dc', 'DiscordChatter Commands', 1).overload((param, origin, output)=>{
-        let playerName = origin.getName();
-        switch (param.first) {
-            case "help":
-                tellRaw(playerName, "§3----- DiscordChatter Help -----§r")
-                tellRaw(playerName, "/dc help - Shows this help text")
-                tellRaw(playerName, "/dc reload - Reloads the Discord Bot")
-                tellRaw(playerName, "/dc config - Used to change config options")
-                tellRaw(playerName, "")
-                tellRaw(playerName, "§4Please note that most commands require OP.§r");
-                return;
-
-            case "config":
-                switch (param.second) {
-                    case "token":
-                        if ( playerName == "Server" ) {
-                            UpdateConfig("token", param.third);
-                            tellRaw(playerName, "Token Updated; Run `dc reload` to log in.");
-                            return;
-                        }
-                        tellRaw(playerName, "Tokens can only be updated via the server console.");
-
-                    case "chanID":
-                        var chanID = param.third?.replace("chanID_", "");
-                        UpdateConfig("chanID", chanID);
-                        tellRaw(playerName, `\"chanID\" set to \"§b${chanID}§r\"`);
-                        return;
-
-                    case "BotEnabled":
-                        if ( UpdateConfig("BotEnabled", param.third) == 0 ) {
-                            tellRaw(playerName, `\"BotEnabled\" set to \"§a${param.third}§r\"`);
-                        } else {
-                            tellRaw(playerName, `Invalid value \"${param.third}\". Use \"dc config help\" for more info.`);
-                        }
-                        return;
-
-                    case "PostDiscordMessagesToConsole":
-                        if ( UpdateConfig("PostDiscordMessagesToConsole", param.third) == 0 ) {
-                            tellRaw(playerName, `\"PostDiscordMessagesToConsole\" set to \"§a${param.third}§r\"`);
-                        } else {
-                            tellRaw(playerName, `Invalid value \"${param.third}\". Use \"dc config help\" for more info.`);
-                        }
-                        return;
-
-                    case "EnableJoinLeaveMessages":
-                        if ( UpdateConfig("EnableJoinLeaveMessages", param.third) == 0 ) {
-                            tellRaw(playerName, `\"EnableJoinLeaveMessages\" set to \"§a${param.third}§r\"`);
-                        } else {
-                            tellRaw(playerName, `Invalid value \"${param.third}\". Use \"dc config help\" for more info.`);
-                        }
-                        return;
-
-                    case "EnableServerStartStopMessages":
-                        if ( UpdateConfig("EnableServerStartStopMessages", param.third) == 0 ) {
-                            tellRaw(playerName, `\"EnableServerStartStopMessages\" set to \"§a${param.third}§r\"`);
-                        } else {
-                            tellRaw(playerName, `Invalid value \"${param.third}\". Use \"dc config help\" for more info.`);
-                        }
-                        return;
-
-                    case "help":
-                        tellRaw(playerName, "§3----- DiscordChatter Config Help -----§r")
-                        tellRaw(playerName, "/dc config {Key} {Value} - Set a config value (Case-Sensitive)")
-                        tellRaw(playerName, "A list of keys can be found at https://github.com/TheShadowEevee/BDSX-Discord-Chatter-Plugin#readme")
-                        tellRaw(playerName, "Instructions on how to get some values can be found there as well.")
-                        tellRaw(playerName, "")
-                        tellRaw(playerName, "§4Please note that most commands require OP.§r");
-                        tellRaw(playerName, "§4You MUST be using the server console to modify the bot token.§r");
-                        return;
-                    default:
-                        tellRaw(playerName, `Invalid argument \"${param.second}\". Use \"dc config help\" for more info.`);
-                        return;
-                }
-
-            case "reload":
-                tellRaw(playerName, "Reloading DiscordChatter!");
-                try {
-                    ReloadBot();
-                } catch (e) {
-                    if (e == "Error: Bot is disabled!") {
-                        tellRaw(playerName, "DiscordChatter is disabled. Stopping the reload.");
-                    } else {
-                        throw e;
-                    }
-                }
-                return;
-
-            default:
-                tellRaw(playerName, `Invalid argument \"${param.first}\". Use \"dc help\" for a list of commands.`);
-                return;
-        }
-    }, {
-            first: [CxxString, true],
-            second: [CxxString, true],
-            third: [CxxString, true]
-    });
-});
+}*/
