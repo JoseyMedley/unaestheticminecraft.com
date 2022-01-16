@@ -79,7 +79,6 @@ export class Minecraft extends NativeClass {
     getCommands():MinecraftCommands {
         abstract();
     }
-
 }
 
 export class DedicatedServer extends NativeClass {

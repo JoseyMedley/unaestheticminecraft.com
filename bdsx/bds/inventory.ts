@@ -1,16 +1,15 @@
 import { abstract } from "../common";
-import { StaticPointer, VoidPointer } from "../core";
+import { VoidPointer } from "../core";
 import { CxxVector } from "../cxxvector";
-import { makefunc } from "../makefunc";
 import { nativeClass, NativeClass, nativeField } from "../nativeclass";
-import { bin64_t, bool_t, CxxString, CxxStringWith8Bytes, int16_t, int32_t, NativeType, uint32_t, uint8_t } from "../nativetype";
+import { bin64_t, bool_t, CxxString, CxxStringWith8Bytes, int16_t, int32_t, uint32_t, uint8_t } from "../nativetype";
 import { ActorRuntimeID } from "./actor";
 import { Block, BlockLegacy } from "./block";
 import { BlockPos, Vec3 } from "./blockpos";
 import { CommandName } from "./commandname";
 import type { ItemEnchants } from "./enchants";
 import type { BlockPalette } from "./level";
-import { CompoundTag } from "./nbt";
+import { CompoundTag, NBT } from "./nbt";
 import type { ServerPlayer } from "./player";
 
 /**
@@ -266,10 +265,10 @@ export class ItemStack extends NativeClass {
      *
      * @see https://minecraft.fandom.com/wiki/Enchanting_mechanics
      */
-    getEnchantValue(): number {
+    getEnchantValue():number {
         abstract();
     }
-    isEnchanted(): boolean {
+    isEnchanted():boolean {
         abstract();
     }
     setCustomLore(lores:string[]|string):void {
@@ -294,9 +293,6 @@ export class ItemStack extends NativeClass {
         abstract();
     }
     startCoolDown(player:ServerPlayer):void {
-        abstract();
-    }
-    load(compoundTag:CompoundTag):void {
         abstract();
     }
     sameItem(item:ItemStack):boolean {
@@ -357,6 +353,18 @@ export class ItemStack extends NativeClass {
         abstract();
     }
     getAttackDamage():number {
+        abstract();
+    }
+    save():Record<string, any> {
+        const tag = this.allocateAndSave();
+        const out = tag.value();
+        tag.dispose();
+        return out;
+    }
+    allocateAndSave():CompoundTag {
+        abstract();
+    }
+    load(tag:CompoundTag|NBT.Compound):void {
         abstract();
     }
     constructItemEnchantsFromUserData():ItemEnchants {
@@ -576,28 +584,21 @@ export class ComplexInventoryTransaction extends NativeClass {
     isItemReleaseTransaction():this is ItemReleaseInventoryTransaction {
         return this.type === ComplexInventoryTransaction.Type.ItemReleaseTransaction;
     }
-
-    static [NativeType.getter](ptr:StaticPointer, offset?:number):ComplexInventoryTransaction {
-        return ComplexInventoryTransaction._toVariantType(ptr.add(offset, offset! >> 31))!;
-    }
-    static [makefunc.getFromParam](stackptr:StaticPointer, offset?:number):ComplexInventoryTransaction|null {
-        return ComplexInventoryTransaction._toVariantType(stackptr.getNullablePointer(offset));
-    }
-    private static _toVariantType(ptr:StaticPointer|null):ComplexInventoryTransaction|null {
-        if (ptr === null) return null;
-        const transaction = ptr.as(ComplexInventoryTransaction);
-        switch (transaction.type) {
-        case ComplexInventoryTransaction.Type.ItemUseTransaction:
-            return ptr.as(ItemUseInventoryTransaction);
-        case ComplexInventoryTransaction.Type.ItemUseOnEntityTransaction:
-            return ptr.as(ItemUseOnActorInventoryTransaction);
-        case ComplexInventoryTransaction.Type.ItemReleaseTransaction:
-            return ptr.as(ItemReleaseInventoryTransaction);
-        default:
-            return transaction;
-        }
-    }
 }
+ComplexInventoryTransaction.setResolver(ptr=>{
+    if (ptr === null) return null;
+    const transaction = ptr.as(ComplexInventoryTransaction);
+    switch (transaction.type) {
+    case ComplexInventoryTransaction.Type.ItemUseTransaction:
+        return ptr.as(ItemUseInventoryTransaction);
+    case ComplexInventoryTransaction.Type.ItemUseOnEntityTransaction:
+        return ptr.as(ItemUseOnActorInventoryTransaction);
+    case ComplexInventoryTransaction.Type.ItemReleaseTransaction:
+        return ptr.as(ItemReleaseInventoryTransaction);
+    default:
+        return transaction;
+    }
+});
 
 export namespace ComplexInventoryTransaction {
     export enum Type {

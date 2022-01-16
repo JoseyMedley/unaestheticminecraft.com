@@ -10,6 +10,7 @@ import type { GameRules } from "./gamerules";
 import type { ItemStack } from "./inventory";
 import type { Player, ServerPlayer } from "./player";
 import type { Scoreboard } from "./scoreboard";
+import { StructureManager } from "./structure";
 
 export enum Difficulty {
     Peaceful,
@@ -123,6 +124,13 @@ export class Level extends NativeClass {
      */
     getSeed():number {
         abstract();
+    }
+    protected _getStructureManager(structureManager:StructureManager):StructureManager {
+        abstract();
+    }
+    /** Constructs a StructureManager instance, you need to destruct it later */
+    getStructureManager():StructureManager {
+        return this._getStructureManager(StructureManager.construct());
     }
     /**
      * Returns the Spawner instance

@@ -68,8 +68,8 @@ type GetTypeFromParam<T> =
 
 type OptionalCheck<T, OPTS extends boolean|CommandFieldOptions> =
     (OPTS extends true ? true : OPTS extends {optional:true} ? true : false) extends true ?
-    GetTypeFromParam<T> :
-    GetTypeFromParam<T>|undefined;
+    GetTypeFromParam<T>|undefined :
+    GetTypeFromParam<T>;
 
 export class CustomCommandFactory {
 
@@ -118,11 +118,10 @@ export class CustomCommandFactory {
             }
         }
 
-        (parameters as any).__proto__ = null;
-        const fields:Record<string, Type<any>> = Object.create(null);
-        for (const key in parameters) {
+        const fields:Record<string, Type<any>> = {};
+        for (const [key, type_] of Object.entries(parameters)) {
+            let type = type_;
             let optional = false;
-            let type:Type<any>|[Type<any>, CommandFieldOptions|boolean] = parameters[key];
             const info:ParamInfo = {
                 key: key as keyof CustomCommandImpl,
                 name: key,
@@ -182,6 +181,14 @@ export class CustomCommandFactory {
     }
 }
 
+export class CustomCommandFactoryWithSignature extends CustomCommandFactory {
+    constructor(
+        registry:CommandRegistry, name:string,
+        public signature:CommandRegistry.Signature) {
+        super(registry, name);
+    }
+}
+
 const commandEnumStored = Symbol('commandEnum');
 function _enum<VALUES extends Record<string, string|number>>(name:string, values:VALUES):CommandEnum<VALUES[keyof VALUES]>;
 function _enum<VALUES extends string[]>(name:string, ...values:VALUES):CommandEnum<VALUES[number]>;
@@ -202,6 +209,12 @@ function _enum(name:string, ...values:(string|Record<string, number|string>)[]):
 }
 
 export const command ={
+    find(name:string):CustomCommandFactoryWithSignature {
+        const registry = serverInstance.minecraft.getCommands().getRegistry();
+        const cmd = registry.findCommand(name);
+        if (cmd === null) throw Error(`${name}: command not found`);
+        return new CustomCommandFactoryWithSignature(registry, name, cmd);
+    },
     register(name:string,
         description:string,
         perm:CommandPermissionLevel = CommandPermissionLevel.Normal,
