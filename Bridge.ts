@@ -158,11 +158,16 @@ events.packetSend(MinecraftPacketIds.Text).on(ev => {
         let params = ev.params;
         let rawdata = fs.readFileSync('deathmsgs.json');
         let deathmsgs = JSON.parse(rawdata);
-        if (params.get(2).startsWith("%")) {return}
-        if (params.get(3).startsWith("%")) {return}
+        if (deathmsgs[msg].includes("%1") && params.get(0) == null) {return}
+        if (deathmsgs[msg].includes("%2") && params.get(1) == null) {return}
+        if (deathmsgs[msg].includes("%3") && params.get(2) == null) {return}
+        if (params.get(0) != null && params.get(0).startsWith("%")) {return}
+        if (params.get(1) != null && params.get(1).startsWith("%")) {return}
+        if (params.get(2) != null && params.get(3).startsWith("%")) {return}
         SendToDiscordEvent(deathmsgs[msg].replace("%1", params.get(0)).replace("%2", params.get(1)).replace("%3", params.get(2)));
     }
 });
+
 
 
 // Chat Message Sent
