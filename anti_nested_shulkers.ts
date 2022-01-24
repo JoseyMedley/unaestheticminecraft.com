@@ -11,22 +11,22 @@ import { system } from "./example_and_test/bedrockapi-system";
 
 console.log("Anti nested shulker loaded!")
 
-function indexOfMax(arr: any[]) {
+function indexOfMin(arr: any[]) {
     if (arr.length === 0) {
         return -1;
     }
 
-    var max = arr[0];
-    var maxIndex = 0;
+    var min = arr[0];
+    var minIndex = 0;
 
     for (var i = 1; i < arr.length; i++) {
-        if (arr[i] > max) {
-            maxIndex = i;
-            max = arr[i];
+        if (arr[i] < min) {
+            minIndex = i;
+            min = arr[i];
         }
     }
 
-    return maxIndex;
+    return minIndex;
 }
 var logBackup = console.log;
 var logMessages: any[] = [];
@@ -53,22 +53,26 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
     });
     if (onplayers.length != distances.length){console.log("Somehow more distances got recorded then players.")} //Never happened to me before, but you never know
     else {
-        let index = indexOfMax(distances)
-        let nearest_player: ServerPlayer = onplayers[index]
+        let index = indexOfMin(distances);
+        let nearest_player: ServerPlayer = onplayers[index];
 
         const region = nearest_player.getRegion();
-        const bpos =  BlockPos.create(x, y, z)
+        const bpos =  BlockPos.create(x, y, z);
         const blockEntity = region.getBlockEntity(bpos);
         if (region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:undyed_shulker_box" || region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:shulker_box"){
             if (blockEntity != null) {
                 const tag = blockEntity.constructAndSave();
-                const items = tag.get("Items") as ListTag
+                const items = tag.get("Items") as ListTag;
                 for (const e of items.data as CxxVector<CompoundTag>) {
                     if (items != (null || undefined)){
                         const Name = ""+e.get("Name");
                         const Slot = (""+e.get("Slot")).length;
                         if (Name == "minecraft:shulker_box"){
-                            console.log("Cleared nested shulker from shulker at "+x+" "+y+" "+z+" (At slot "+Slot+")")
+                            console.log("Cleared nested shulker from shulker at "+x+" "+y+" "+z+" (At slot "+Slot+")");
+                            if (y>320){
+                                y = y - 4294967296;
+                                //forgive me jeebus for this bullshit fix
+                            }
                             system.executeCommand(`/replaceitem block ${x} ${y} ${z} slot.container `+Slot+" stone", () => {});
                         }
                     }

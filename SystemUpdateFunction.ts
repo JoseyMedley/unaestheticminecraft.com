@@ -32,14 +32,13 @@ system.update = function () {
     system.executeCommand("/clear @a[tag=!admin] jigsaw", () => {});
 
     //patch GMC
-    /*
     system.executeCommand("/testfor @a[m=c]", (out) => {
         var iscreative = out.data.statusMessage;
         if (iscreative != "No Targets Matched Selector"){
-            console.log(iscreative);
+            //console.log(iscreative);
+            //system.executeCommand("/gamemode s @a[tag=!admin]", () => {});
         }
     });
-    */
 
     //doop
     /*
