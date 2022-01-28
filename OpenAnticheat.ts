@@ -69,6 +69,23 @@ events.packetBefore(MinecraftPacketIds.PlayerAuthInput).on((pk, ni) => {
     }
 });
 
+events.packetRaw(MinecraftPacketIds.Disconnect).on(ev => {
+    console.log("DoS attempted");
+    return CANCEL;
+});
+
+events.packetRaw(MinecraftPacketIds.ClientCacheBlobStatus).on(ptr =>{
+    ptr.readVarUint();
+    if (ptr.readVarUint() >= 0xfff){
+        console.log("DoS attempted");
+        return CANCEL;
+    }
+    if (ptr.readVarUint() >= 0xfff){
+        console.log("DoS attempted");
+        return CANCEL;
+    }
+});
+
 //Fakename patch
 //Thanks to Aniketos for this one
 const names = new Map<NetworkIdentifier, string>();
