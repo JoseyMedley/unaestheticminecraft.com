@@ -4,11 +4,11 @@ import { abstract, TypedArrayBuffer } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
 import { CxxMap } from "../cxxmap";
 import { CxxVector } from "../cxxvector";
-import { nativeClass, NativeClass, NativeClassType, nativeField } from "../nativeclass";
+import { AbstractClass, nativeClass, NativeClass, NativeClassType, nativeField } from "../nativeclass";
 import { bin64_t, CxxString, float32_t, float64_t, int16_t, int32_t, int64_as_float_t, NativeType, uint8_t, void_t } from "../nativetype";
 import { Wrapper } from "../pointer";
-import util = require("util");
 import { hexn } from "../util";
+import util = require("util");
 
 @nativeClass()
 export class TagMemoryChunk extends NativeClass {
@@ -255,7 +255,7 @@ export class Int64Tag extends Tag {
     }
 
     [util.inspect.custom](depth:number, options:Record<string, any>):unknown {
-        return `LongTag ${util.inspect(this.dataAsString, options)}`;
+        return `LongTag ${this.dataAsString.yellow}`;
     }
 }
 
@@ -458,7 +458,7 @@ export class ListTag<T extends Tag = Tag> extends Tag {
 }
 
 @nativeClass(0x30)
-export class CompoundTagVariant extends NativeClass {
+export class CompoundTagVariant extends AbstractClass {
     get():Tag {
         return Tag.from(this as any)!;
     }
@@ -611,9 +611,8 @@ export namespace NBT {
         constructor(protected _value:number) {
             super();
         }
-        get value():number {
-            return this._value;
-        }
+        abstract get value(): number;
+        abstract set value(n: number);
         toExponential(fractionDigits?:number|undefined):string {
             return this._value.toExponential(fractionDigits);
         }
@@ -637,6 +636,9 @@ export namespace NBT {
         constructor(n:number) {
             super(n & 0xff);
         }
+        get value(): number {
+            return this._value;
+        }
         set value(n:number) {
             this._value = n & 0xff;
         }
@@ -651,6 +653,9 @@ export namespace NBT {
         constructor(n:number) {
             super(n & 0xff);
         }
+        get value(): number {
+            return this._value;
+        }
         set value(n:number) {
             this._value = n << 16 >> 16;
         }
@@ -664,6 +669,9 @@ export namespace NBT {
     export class Int extends Numeric {
         constructor(n:number) {
             super(n & 0xff);
+        }
+        get value(): number {
+            return this._value;
         }
         set value(n:number) {
             this._value = n|0;
@@ -708,6 +716,9 @@ export namespace NBT {
         constructor(n:number) {
             super(Math.fround(n));
         }
+        get value(): number {
+            return this._value;
+        }
         set value(n:number) {
             this._value = Math.fround(n);
         }
@@ -721,6 +732,9 @@ export namespace NBT {
     export class Double extends Numeric {
         set value(n:number) {
             this._value = n;
+        }
+        get value(): number {
+            return this._value;
         }
         allocate():DoubleTag {
             return DoubleTag.allocateWith(this._value);

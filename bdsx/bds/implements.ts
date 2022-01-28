@@ -29,7 +29,7 @@ import { EnchantUtils, ItemEnchants } from "./enchants";
 import { GameMode } from "./gamemode";
 import { GameRule, GameRuleId, GameRules } from "./gamerules";
 import { HashedString } from "./hashedstring";
-import { ComponentItem, Container, Inventory, InventoryAction, InventorySource, InventoryTransaction, InventoryTransactionItemGroup, Item, ItemStack, NetworkItemStackDescriptor, PlayerInventory, PlayerUIContainer } from "./inventory";
+import { ComponentItem, Container, Inventory, InventoryAction, InventorySource, InventoryTransaction, InventoryTransactionItemGroup, Item, ItemDescriptor, ItemStack, NetworkItemStackDescriptor, PlayerInventory, PlayerUIContainer } from "./inventory";
 import { ActorFactory, AdventureSettings, BlockPalette, Level, LevelData, ServerLevel, Spawner, TagRegistry } from "./level";
 import { ByteArrayTag, ByteTag, CompoundTag, CompoundTagVariant, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, NBT, ShortTag, StringTag, Tag, TagMemoryChunk, TagPointer } from "./nbt";
 import { networkHandler, NetworkHandler, NetworkIdentifier, ServerNetworkHandler } from "./networkidentifier";
@@ -252,6 +252,16 @@ class DefaultDataLoaderHelper extends NativeClass {
         return v;
     }
 }
+const Actor$readAdditionalSaveData = makefunc.js([0x828], void_t, {this:Actor}, CompoundTag, DefaultDataLoaderHelper);
+Actor.prototype.readAdditionalSaveData = function(tag:CompoundTag|NBT.Compound):void {
+    if (tag instanceof Tag) {
+        Actor$readAdditionalSaveData.call(this, tag, DefaultDataLoaderHelper.create());
+    } else {
+        tag = NBT.allocate(tag) as CompoundTag;
+        Actor$readAdditionalSaveData.call(this, tag, DefaultDataLoaderHelper.create());
+        tag.dispose();
+    }
+};
 
 const Actor$load = procHacker.js('Actor::load', void_t, {this:Actor}, CompoundTag, DefaultDataLoaderHelper);
 Actor.prototype.load = function(tag:CompoundTag|NBT.Compound):void {
@@ -271,6 +281,9 @@ Actor.prototype.getStatusFlag = procHacker.js("?getStatusFlag@Actor@@QEBA_NW4Act
 
 Actor.prototype.getLevel = procHacker.js("Actor::getLevel", Level, {this:Actor});
 
+Actor.prototype.isRiding = procHacker.js("?isRiding@Actor@@QEBA_NXZ", bool_t, {this:Actor});
+// Actor.prototype.isRidingEntity = procHacker.js("?isRiding@Actor@@QEBA_NPEAV1@@Z", bool_t, {this:Actor}, Actor);
+
 Actor.fromUniqueIdBin = function(bin, getRemovedActor = true) {
     return serverInstance.minecraft.getLevel().fetchEntity(bin, getRemovedActor);
 };
@@ -283,10 +296,15 @@ Actor.prototype.removeEffect = procHacker.js("?removeEffect@Actor@@QEAAXH@Z", vo
 OwnerStorageEntity.prototype._getStackRef = procHacker.js('OwnerStorageEntity::_getStackRef', EntityContext, {this:OwnerStorageEntity});
 Actor.tryGetFromEntity = procHacker.js('Actor::tryGetFromEntity', Actor, null, EntityContext);
 
-const ActorDefinitionIdentifier$ActorDefinitionIdentifier = procHacker.js("??0ActorDefinitionIdentifier@@QEAA@W4ActorType@@@Z", void_t, null, ActorDefinitionIdentifier, int32_t);
-ActorDefinitionIdentifier.constructWith = function(type:number):ActorDefinitionIdentifier {
+const ActorDefinitionIdentifier$ActorDefinitionIdentifier$ActorType = procHacker.js("??0ActorDefinitionIdentifier@@QEAA@W4ActorType@@@Z", void_t, null, ActorDefinitionIdentifier, int32_t);
+const ActorDefinitionIdentifier$ActorDefinitionIdentifier$CxxString = procHacker.js("??0ActorDefinitionIdentifier@@QEAA@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z", void_t, null, ActorDefinitionIdentifier, CxxString);
+ActorDefinitionIdentifier.constructWith = function(type:string|number):ActorDefinitionIdentifier {
     const identifier = ActorDefinitionIdentifier.construct();
-    ActorDefinitionIdentifier$ActorDefinitionIdentifier(identifier, type);
+    if (typeof type === "number") {
+        ActorDefinitionIdentifier$ActorDefinitionIdentifier$ActorType(identifier, type);
+    } else {
+        ActorDefinitionIdentifier$ActorDefinitionIdentifier$CxxString(identifier, type);
+    }
     return identifier;
 };
 
@@ -334,7 +352,7 @@ procHacker.hookingRawWithCallOriginal(
     makefunc.np((level, actor, b)=>{
         _removeActor(actor);
     }, void_t, {name: 'hook of Level::removeEntityReferences'}, Level, Actor, bool_t),
-    [Register.rcx, Register.rdx, Register.r8], []
+    [Register.rcx, Register.rdx, Register.r8], [],
 );
 
 asmcode.removeActor = makefunc.np(_removeActor, void_t, null, Actor);
@@ -376,7 +394,7 @@ Player.prototype.setSleeping = procHacker.js("Player::setSleeping", void_t, {thi
 Player.prototype.isSleeping = procHacker.js("Player::isSleeping", bool_t, {this:Player});
 Player.prototype.isJumping = procHacker.js("Player::isJumping", bool_t, {this:Player});
 const AdventureSettingsPacket$AdventureSettingsPacket = procHacker.js("AdventureSettingsPacket::AdventureSettingsPacket", void_t, null, AdventureSettingsPacket, AdventureSettings, Abilities, ActorUniqueID, bool_t);
-Player.prototype.syncAbilties = function() {
+Player.prototype.syncAbilities = function() {
     const pk = AdventureSettingsPacket.create();
     AdventureSettingsPacket$AdventureSettingsPacket(pk, serverInstance.minecraft.getLevel().getAdventureSettings(), this.abilities, this.getUniqueIdBin(), false);
     this.sendPacket(pk);
@@ -398,7 +416,7 @@ class EntityIdentifierComponent extends NativeClass {
     certifiate:Certificate;
 }
 
-EntityContextBase.prototype.isVaild = procHacker.js('EntityContextBase::isValid', bool_t, {this:EntityContextBase});
+EntityContextBase.prototype.isValid = procHacker.js('EntityContextBase::isValid', bool_t, {this:EntityContextBase});
 EntityContextBase.prototype._enttRegistry = procHacker.js('EntityContextBase::_enttRegistry', VoidPointer, {this:EntityContextBase});
 
 const Registry_getEntityIdentifierComponent = procHacker.js('??$try_get@VUserEntityIdentifierComponent@@@?$basic_registry@VEntityId@@@entt@@QEBA?A_PVEntityId@@@Z', EntityIdentifierComponent, null, VoidPointer, int32_t.ref());
@@ -406,7 +424,7 @@ const Registry_getEntityIdentifierComponent = procHacker.js('??$try_get@VUserEnt
 Player.prototype.getCertificate = function() {
     // part of ServerNetworkHandler::_displayGameMessage
     const base = this.ctxbase;
-    if (!base.isVaild()) throw Error(`is not vaild`);
+    if (!base.isValid()) throw Error(`is not valid`);
     const registry = base._enttRegistry();
     return Registry_getEntityIdentifierComponent(registry, base.entityId).certifiate;
 };
@@ -425,7 +443,7 @@ ServerPlayer.prototype.sendNetworkPacket = procHacker.js("ServerPlayer::sendNetw
 ServerPlayer.prototype.getNetworkIdentifier = function () {
     // part of ServerPlayer::sendNetworkPacket
     const base = this.ctxbase;
-    if (!base.isVaild()) throw Error(`is not vaild`);
+    if (!base.isValid()) throw Error(`is not valid`);
     const registry = base._enttRegistry();
     const res = Registry_getEntityIdentifierComponent(registry, base.entityId);
     return res.networkIdentifier;
@@ -434,9 +452,10 @@ ServerPlayer.prototype.setArmor = procHacker.js("ServerPlayer::setArmor", void_t
 
 const PlayerListEntry$PlayerListEntry = procHacker.js("??0PlayerListEntry@@QEAA@AEBVPlayer@@@Z", PlayerListEntry, null, PlayerListEntry, Player);
 PlayerListEntry.constructWith = function(player:Player):PlayerListEntry {
-    const entry = PlayerListEntry.construct();
+    const entry = new PlayerListEntry(true);
     return PlayerListEntry$PlayerListEntry(entry, player);
 };
+PlayerListEntry.prototype[NativeType.dtor] = procHacker.js('PlayerListEntry::~PlayerListEntry', void_t, {this:PlayerListEntry});
 
 // networkidentifier.ts
 NetworkIdentifier.prototype.getActor = function():ServerPlayer|null {
@@ -455,7 +474,7 @@ NetworkHandler.Connection.abstract({
 });
 NetworkHandler.abstract({
     vftable: VoidPointer,
-    instance: [RakNetInstance.ref(), 0x58]
+    instance: [RakNetInstance.ref(), 0x58],
 });
 
 // NetworkHandler::Connection* NetworkHandler::getConnectionFromId(const NetworkIdentifier& ni)
@@ -528,7 +547,7 @@ BaseAttributeMap.prototype.getMutableInstance = procHacker.js("?getMutableInstan
 
 // server.ts
 VanilaGameModuleServer.abstract({
-    listener:[VanilaServerGameplayEventListener.ref(), 0x8]
+    listener:[VanilaServerGameplayEventListener.ref(), 0x8],
 });
 DedicatedServer.abstract({});
 Minecraft.abstract({
@@ -553,7 +572,7 @@ ServerInstance.abstract({
 
 // gamemode.ts
 GameMode.define({
-    actor: [Actor.ref(), 8]
+    actor: [Actor.ref(), 8],
 });
 
 // inventory.ts
@@ -569,7 +588,8 @@ const ItemStackVectorDeletingDestructor = makefunc.js([0], void_t, {this:ItemSta
 ItemStack.prototype[NativeType.dtor] = function(){
     ItemStackVectorDeletingDestructor.call(this, 0);
 };
-(ItemStack.prototype as any)._getArmorValue = procHacker.js('ArmorItem::getArmorValue', int32_t, {this: ItemStack});
+(ItemStack.prototype as any)._getArmorValue = procHacker.js('ArmorItem::getArmorValue', int32_t, { this: ItemStack });
+ItemStack.prototype.remove = procHacker.js("ItemStackBase::remove", void_t, { this: ItemStack }, int32_t);
 ItemStack.prototype.setAuxValue = procHacker.js('ItemStackBase::setAuxValue', void_t, {this: ItemStack}, int16_t);
 ItemStack.prototype.getAuxValue = procHacker.js('ItemStackBase::getAuxValue', int16_t, {this: ItemStack});
 ItemStack.prototype.toString = procHacker.js('ItemStackBase::toString', CxxString, {this: ItemStack, structureReturn: true});
@@ -652,6 +672,12 @@ PlayerInventory.prototype.selectSlot = procHacker.js("PlayerInventory::selectSlo
 PlayerInventory.prototype.setItem = procHacker.js("PlayerInventory::setItem", void_t, {this:PlayerInventory}, int32_t, ItemStack, int32_t, bool_t);
 PlayerInventory.prototype.setSelectedItem = procHacker.js("PlayerInventory::setSelectedItem", void_t, {this:PlayerInventory}, ItemStack);
 PlayerInventory.prototype.swapSlots = procHacker.js("PlayerInventory::swapSlots", void_t, {this:PlayerInventory}, int32_t, int32_t);
+
+ItemDescriptor.prototype[NativeType.ctor] = procHacker.js('??0ItemDescriptor@@QEAA@XZ', void_t, {this:ItemDescriptor});
+ItemDescriptor.prototype[NativeType.dtor] = procHacker.js('ItemDescriptor::~ItemDescriptor', void_t, {this:ItemDescriptor});
+ItemDescriptor.prototype[NativeType.ctor_copy] = procHacker.js('??0ItemDescriptor@@QEAA@AEBV0@@Z', void_t, {this:ItemDescriptor}, ItemDescriptor);
+NetworkItemStackDescriptor.prototype[NativeType.dtor] = procHacker.js('NetworkItemStackDescriptor::~NetworkItemStackDescriptor', void_t, {this:NetworkItemStackDescriptor});
+NetworkItemStackDescriptor.prototype[NativeType.ctor_copy] = procHacker.js('??0NetworkItemStackDescriptor@@QEAA@AEBVItemStackDescriptor@@@Z', void_t, {this:NetworkItemStackDescriptor}, NetworkItemStackDescriptor);
 
 InventoryTransaction.prototype.addItemToContent = procHacker.js("InventoryTransaction::addItemToContent", void_t, {this:InventoryTransaction}, ItemStack, int32_t);
 (InventoryTransaction.prototype as any)._getActions = procHacker.js("InventoryTransaction::getActions", CxxVector.make(InventoryAction), {this:InventoryTransaction}, InventorySource);
@@ -1007,6 +1033,7 @@ LevelChunk.prototype.getLevel = procHacker.js("LevelChunk::getLevel", Level, {th
 LevelChunk.prototype.getPosition = procHacker.js("LevelChunk::getPosition", ChunkPos, {this:LevelChunk});
 LevelChunk.prototype.getMin = procHacker.js("LevelChunk::getMin", BlockPos, {this:LevelChunk});
 LevelChunk.prototype.getMax = procHacker.js("LevelChunk::getMax", BlockPos, {this:LevelChunk});
+LevelChunk.prototype.isFullyLoaded = procHacker.js("LevelChunk::isFullyLoaded", bool_t, {this:LevelChunk});
 LevelChunk.prototype.toWorldPos = procHacker.js("LevelChunk::toWorldPos", BlockPos, {this:LevelChunk, structureReturn:true}, ChunkPos);
 ChunkSource.prototype.getLevel = procHacker.js("ChunkSource::getLevel", Level, {this:ChunkSource});
 ChunkSource.prototype.getLevel = procHacker.js("ChunkSource::getLevel", Level, {this:ChunkSource});

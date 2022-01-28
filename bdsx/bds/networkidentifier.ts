@@ -6,18 +6,17 @@ import { dll } from "../dll";
 import { events } from "../event";
 import { Hashable, HashSet } from "../hashset";
 import { makefunc } from "../makefunc";
-import { nativeClass, NativeClass, nativeField } from "../nativeclass";
+import { AbstractClass, nativeClass, NativeClass, nativeField } from "../nativeclass";
 import { bin64_t, CxxString, int32_t, NativeType, void_t } from "../nativetype";
 import { CxxStringWrapper } from "../pointer";
 import { remapAndPrintError } from "../source-map-support";
-import { _tickCallback } from "../util";
 import type { Packet } from "./packet";
 import type { ServerPlayer } from "./player";
 import { procHacker } from "./proc";
 import { RakNet } from "./raknet";
 import { RakNetInstance } from "./raknetinstance";
 
-export class NetworkHandler extends NativeClass {
+export class NetworkHandler extends AbstractClass {
     vftable:VoidPointer;
     instance:RakNetInstance;
 
@@ -35,17 +34,17 @@ export class NetworkHandler extends NativeClass {
 }
 
 export namespace NetworkHandler {
-    export class Connection extends NativeClass {
+    export class Connection extends AbstractClass {
         networkIdentifier:NetworkIdentifier;
     }
 }
 
 @nativeClass(null)
-class ServerNetworkHandler$Client extends NativeClass {
+class ServerNetworkHandler$Client extends AbstractClass {
 }
 
 @nativeClass(null)
-export class ServerNetworkHandler extends NativeClass {
+export class ServerNetworkHandler extends AbstractClass {
     @nativeField(VoidPointer)
     vftable: VoidPointer;
     @nativeField(CxxString, 0x268)
@@ -149,7 +148,6 @@ export let networkHandler:NetworkHandler;
 procHacker.hookingRawWithCallOriginal('?onConnectionClosed@NetworkHandler@@EEAAXAEBVNetworkIdentifier@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z', makefunc.np((handler, ni, msg)=>{
     try {
         events.networkDisconnected.fire(ni);
-        _tickCallback();
     } catch (err) {
         remapAndPrintError(err);
     }

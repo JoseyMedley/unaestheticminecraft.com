@@ -5,8 +5,8 @@ import type { NetworkIdentifier } from "./bds/networkidentifier";
 import { MinecraftPacketIds } from "./bds/packetids";
 import { CANCEL } from "./common";
 import { Event, EventEx } from "./eventtarget";
-import type { BlockDestroyEvent, BlockDestructionStartEvent, BlockPlaceEvent, CampfireTryDouseFire, CampfireTryLightFire, FarmlandDecayEvent, PistonMoveEvent } from "./event_impl/blockevent";
-import type { EntityCreatedEvent, EntityDieEvent, EntityHeathChangeEvent, EntityHurtEvent, EntitySneakEvent, EntityStartRidingEvent, EntityStartSwimmingEvent, EntityStopRidingEvent, PlayerAttackEvent, PlayerCritEvent, PlayerDropItemEvent, PlayerInventoryChangeEvent, PlayerJoinEvent, PlayerLeftEvent, PlayerLevelUpEvent, PlayerPickupItemEvent, PlayerRespawnEvent, PlayerUseItemEvent, ProjectileShootEvent, SplashPotionHitEvent } from "./event_impl/entityevent";
+import type { BlockDestroyEvent, BlockDestructionStartEvent, BlockPlaceEvent, ButtonPressEvent, CampfireTryDouseFire, CampfireTryLightFire, FarmlandDecayEvent, PistonMoveEvent } from "./event_impl/blockevent";
+import type { EntityCreatedEvent, EntityDieEvent, EntityHeathChangeEvent, EntityHurtEvent, EntitySneakEvent, EntityStartRidingEvent, EntityStartSwimmingEvent, EntityStopRidingEvent, PlayerAttackEvent, PlayerCritEvent, PlayerDropItemEvent, PlayerInventoryChangeEvent, PlayerJoinEvent, PlayerLeftEvent, PlayerLevelUpEvent, PlayerPickupItemEvent, PlayerRespawnEvent, PlayerUseItemEvent, ProjectileShootEvent, SplashPotionHitEvent, ItemUseEvent, ItemUseOnBlockEvent } from "./event_impl/entityevent";
 import type { LevelExplodeEvent, LevelSaveEvent, LevelTickEvent, LevelWeatherChangeEvent } from "./event_impl/levelevent";
 import type { ObjectiveCreateEvent, QueryRegenerateEvent, ScoreAddEvent, ScoreRemoveEvent, ScoreResetEvent, ScoreSetEvent } from "./event_impl/miscevent";
 import type { nethook } from "./nethook";
@@ -68,6 +68,9 @@ export namespace events {
     export const campfireLight = new Event<(event: CampfireTryLightFire) => void | CANCEL>();
     /** Cancellable but requires additional stimulation */
     export const campfireDouse = new Event<(event: CampfireTryDouseFire) => void | CANCEL>();
+    /** Cancellable but the client will have the motion and sound*/
+    export const buttonPress = new Event<(event: ButtonPressEvent) => void | CANCEL>();
+
     ////////////////////////////////////////////////////////
     // Entity events
 
@@ -108,8 +111,25 @@ export namespace events {
     export const playerPickupItem = new Event<(event: PlayerPickupItemEvent) => void | CANCEL>();
     /** Not cancellable */
     export const playerCrit = new Event<(event: PlayerCritEvent) => void>();
-    /** Not cancellable */
+    /** Not cancellable.
+     * Triggered when a player finishes consuming an item.
+     * (e.g : food, potion, etc...)
+     */
     export const playerUseItem = new Event<(event: PlayerUseItemEvent) => void>();
+    /** Cancellable.
+     * Triggered when a player uses an item. Cancelling this event will prevent the item from being used.
+     * (e.g : splash potion won't be thrown, food won't be consumed, etc...)
+     * To note : this event is triggered with every item, even if they are not consumable.
+     *
+     * @remarks use `itemUseOnBlock` to cancel the usage of an item on a block (e.g : flint and steel)
+     */
+    export const itemUse = new Event<(event: ItemUseEvent) => void | CANCEL>();
+    /** Cancellable.
+     * Triggered when a player uses an item on a block. Cancelling this event will prevent the item from being used
+     * (e.g : flint and steel won't ignite block, seeds won't be planted, etc...)
+     * To note : this event is triggered with every item, even if they are not usable on blocks.
+     */
+    export const itemUseOnBlock = new Event<(event: ItemUseOnBlockEvent) => void | CANCEL>();
     /** Cancellable */
     export const splashPotionHit = new Event<(event: SplashPotionHitEvent) => void | CANCEL>();
     /** Not cancellable */
@@ -178,7 +198,7 @@ export namespace events {
         Before,
         After,
         Send,
-        SendRaw
+        SendRaw,
     }
 
     export function packetEvent(type:PacketEventType, packetId:MinecraftPacketIds):Event<(...args:any[])=>(CANCEL|void)>|null {
