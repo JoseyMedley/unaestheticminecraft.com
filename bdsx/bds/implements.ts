@@ -121,6 +121,9 @@ Level.prototype.getRuntimePlayer = procHacker.js("Level::getRuntimePlayer", Play
 
 Level.prototype.getTime = procHacker.js("Level::getTime", int64_as_float_t, {this:Level});
 Level.prototype.getCurrentTick = procHacker.js("Level::getCurrentTick", int64_as_float_t.ref(), {this:Level});// You can run the server for 1.4202551784875594e+22 years till it exceeds the max safe integer
+Level.prototype.getRandomPlayer = procHacker.js("Level::getRandomPlayer", Player, {this:Level});
+
+Level.prototype.updateWeather = procHacker.js("Level::updateWeather", void_t, {this:Level}, float32_t, int32_t, float32_t, int32_t);
 
 Level.abstract({
     vftable: VoidPointer,
@@ -144,8 +147,8 @@ Spawner.prototype.spawnMob = function(region:BlockSource, id:ActorDefinitionIden
 
 // actor.ts
 const actorMaps = new Map<string, Actor>();
-const ServerPlayer_vftable = proc["ServerPlayer::`vftable'"];
-const ItemActor_vftable = proc["ItemActor::`vftable'"];
+const ServerPlayer$vftable = proc["ServerPlayer::`vftable'"];
+const ItemActor$vftable = proc["ItemActor::`vftable'"];
 Actor.abstract({
     vftable: VoidPointer,
     ctxbase: EntityContextBase,
@@ -164,9 +167,9 @@ Actor.setResolver(ptr=>{
     const binptr = ptr.getAddressBin();
     let actor = actorMaps.get(binptr);
     if (actor != null) return actor;
-    if (ptr.getPointer().equals(ServerPlayer_vftable)) {
+    if (ptr.getPointer().equals(ServerPlayer$vftable)) {
         actor = ptr.as(ServerPlayer);
-    } else if (ptr.getPointer().equals(ItemActor_vftable)) {
+    } else if (ptr.getPointer().equals(ItemActor$vftable)) {
         actor = ptr.as(ItemActor);
     } else {
         actor = ptr.as(Actor);
@@ -588,7 +591,9 @@ const ItemStackVectorDeletingDestructor = makefunc.js([0], void_t, {this:ItemSta
 ItemStack.prototype[NativeType.dtor] = function(){
     ItemStackVectorDeletingDestructor.call(this, 0);
 };
-(ItemStack.prototype as any)._getArmorValue = procHacker.js('ArmorItem::getArmorValue', int32_t, { this: ItemStack });
+
+Item.prototype.isArmor = makefunc.js([0x40], bool_t, {this:Item});
+Item.prototype.getArmorValue = makefunc.js([0x1d0], int32_t, {this:Item});
 ItemStack.prototype.remove = procHacker.js("ItemStackBase::remove", void_t, { this: ItemStack }, int32_t);
 ItemStack.prototype.setAuxValue = procHacker.js('ItemStackBase::setAuxValue', void_t, {this: ItemStack}, int16_t);
 ItemStack.prototype.getAuxValue = procHacker.js('ItemStackBase::getAuxValue', int16_t, {this: ItemStack});
@@ -638,7 +643,7 @@ ItemStack.prototype.load = function(tag) {
         ItemStack$load(this, tag);
     } else {
         const allocated = NBT.allocate(tag);
-        const res = ItemStack$load(this, allocated as CompoundTag);
+        ItemStack$load(this, allocated as CompoundTag);
         allocated.dispose();
     }
 };

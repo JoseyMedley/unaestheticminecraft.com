@@ -361,7 +361,6 @@ const symbols = [
     'ItemStackBase::toDebugString',
     'ItemStackBase::getAuxValue',
     'ItemStackBase::setAuxValue',
-    'ArmorItem::getArmorValue',
     'Mob::getArmorValue',
     'IdentityDefinition::getEntityId',
     'IdentityDefinition::getPlayerId',
@@ -430,6 +429,8 @@ const symbols = [
     'ButtonBlock::use',
     'ItemStack::use',
     'ItemStack::useOn',
+    'Level::getRandomPlayer',
+    'Player::startSleepInBed',
 ] as const;
 
 // decorated symbols
