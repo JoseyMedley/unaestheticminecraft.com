@@ -7,6 +7,7 @@ import type { BlockPos, ChunkPos } from "./blockpos";
 import type { ChunkSource, LevelChunk } from "./chunk";
 import type { CommandName } from "./commandname";
 import { HashedString } from "./hashedstring";
+import type { Container } from "./inventory";
 import { CompoundTag, NBT } from "./nbt";
 
 @nativeClass(null)
@@ -60,6 +61,9 @@ export class BlockLegacy extends NativeClass {
     getRenderBlock():Block {
         abstract();
     }
+    getBlockEntityType(): BlockActorType {
+        abstract();
+    }
 }
 
 @nativeClass(null)
@@ -99,6 +103,9 @@ export class Block extends NativeClass {
         abstract();
     }
     getRuntimeId():int32_t {
+        abstract();
+    }
+    getBlockEntityType(): BlockActorType {
         abstract();
     }
 }
@@ -189,6 +196,62 @@ export class BlockActor extends NativeClass {
         this.save(tag);
         return tag;
     }
+    setChanged(): void{
+        abstract();
+    }
+    getContainer(): Container | null{
+        abstract();
+    }
+    getType(): BlockActorType {
+        abstract();
+    }
+}
+
+export enum BlockActorType {
+    None = 0x00,
+    Furnace = 0x01,
+    Chest = 0x02,
+    NetherReactor = 0x03,
+    Sign = 0x04,
+    MobSpawner = 0x05,
+    Skull = 0x06,
+    FlowerPot = 0x07,
+    BrewingStand = 0x08,
+    EnchantingTable = 0x09,
+    DaylightDetector = 0x0a,
+    Music = 0x0b,
+    Comparator = 0x0c,
+    Dispenser = 0x0d,
+    Dropper = 0x0e,
+    Hopper = 0x0f,
+    Cauldron = 0x10,
+    ItemFrame = 0x11,
+    Piston = 0x12,
+    MovingBlock = 0x13,
+    Beacon = 0x15,
+    EndPortal = 0x16,
+    EnderChest = 0x17,
+    EndGateway = 0x18,
+    ShulkerBox = 0x19,
+    CommandBlock = 0x1a,
+    Bed = 0x1b,
+    Banner = 0x1c,
+    StructureBlock = 0x20,
+    Jukebox = 0x21,
+    ChemistryTable = 0x22,
+    Conduit = 0x23,
+    Jigsaw = 0x24,
+    Lectern = 0x25,
+    BlastFurnace = 0x26,
+    Smoker = 0x27,
+    Bell = 0x28,
+    Campfire = 0x29,
+    Barrel = 0x2a,
+    Beehive = 0x2b,
+    Lodestone = 0x2c,
+    SculkSensor = 0x2d,
+    SporeBlossom = 0x2e,
+    SculkCatalyst = 0x30,
 }
 
 @nativeClass(null)

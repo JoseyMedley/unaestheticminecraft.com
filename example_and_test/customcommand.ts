@@ -2,7 +2,7 @@
 // Custom Command
 import { DimensionId } from "bdsx/bds/actor";
 import { RelativeFloat, Vec3 } from "bdsx/bds/blockpos";
-import { ActorWildcardCommandSelector, CommandPermissionLevel, CommandPosition, CommandRawText } from "bdsx/bds/command";
+import { ActorWildcardCommandSelector, Command, CommandPermissionLevel, CommandPosition, CommandRawText } from "bdsx/bds/command";
 import { JsonValue } from "bdsx/bds/connreq";
 import { command } from "bdsx/command";
 import { events } from "bdsx/event";
@@ -92,14 +92,28 @@ command.register('hhh', 'json example').overload((param, origin, output)=>{
 
 // CommandPosition, more useful than three of `RelativeFloat`
 command.register('iii', 'position example').overload((param, origin, output)=>{
-    const pos = param.position.getPosition(origin, Vec3.create(0, 0, 0)).toJSON();
-    const blockPos = param.position.getBlockPosition(origin, Vec3.create(0, 0, 0)).toJSON()
+    // without offset :
+    const pos = param.position.getPosition(origin).toJSON();
+
+    // with offset :
+    // the offset is used for relative position
+    const blockPos = param.position.getBlockPosition(origin, Vec3.create(0, 4, 0)).toJSON();
+
     output.success(
         `position example> origin=${origin.getName()}\n` +
         `Pos: §a${pos.x.toFixed(2)}§f, §a${pos.y.toFixed(2)}§f, §a${pos.z.toFixed(2)}§f\n`+
         `BlockPos: §a${blockPos.x}§f, §a${blockPos.y}§f, §a${blockPos.z}`);
 }, {
     position: CommandPosition,
+});
+
+// block
+command.register('jjj', 'block example').overload((param, origin, output)=>{
+    output.success(
+        `block example> origin=${origin.getName()}\n`+
+        `block name: ${param.block.getName()}`);
+}, {
+    block: Command.Block,
 });
 
 // hook direct

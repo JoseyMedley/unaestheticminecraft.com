@@ -3,18 +3,18 @@
  */
 
 import { asm, FloatRegister, OperationSize, Register } from "bdsx/assembler";
-import { Actor, ActorType, DimensionId } from "bdsx/bds/actor";
+import { Actor, ActorType, DimensionId, ItemActor } from "bdsx/bds/actor";
 import { AttributeId } from "bdsx/bds/attribute";
 import { BlockPos, RelativeFloat } from "bdsx/bds/blockpos";
 import { CommandContext, CommandPermissionLevel } from "bdsx/bds/command";
 import { JsonValue } from "bdsx/bds/connreq";
 import { HashedString } from "bdsx/bds/hashedstring";
-import { ContainerId, ContainerType, ItemStack, NetworkItemStackDescriptor } from "bdsx/bds/inventory";
+import { ItemStack } from "bdsx/bds/inventory";
 import { ServerLevel } from "bdsx/bds/level";
 import { ByteArrayTag, ByteTag, CompoundTag, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, ShortTag, StringTag, Tag } from "bdsx/bds/nbt";
 import { networkHandler, NetworkIdentifier } from "bdsx/bds/networkidentifier";
 import { MinecraftPacketIds } from "bdsx/bds/packetids";
-import { AttributeData, ContainerOpenPacket, InventoryContentPacket, PacketIdToType } from "bdsx/bds/packets";
+import { AttributeData, PacketIdToType } from "bdsx/bds/packets";
 import { Player, PlayerPermission } from "bdsx/bds/player";
 import { procHacker } from "bdsx/bds/proc";
 import { serverInstance } from "bdsx/bds/server";
@@ -96,6 +96,7 @@ Tester.test({
             if (!nonsamehex) this.equals(hex(opers.asm().buffer()), hexcode.toUpperCase());
         };
 
+        assert('83 39 00', 'cmp dword ptr [rcx], 0x0');
         assert('8b 0c 31', 'mov ecx, dword ptr [rcx+rsi]');
         assert('f3 0f 11 89 a4 03 00 00', 'movss dword ptr [rcx+0x3a4], xmm1');
         assert('0F 84 7A 06 00 00 55 56 57 41 54 41 55 41 56', 'je 0x67a;push rbp;push rsi;push rdi;push r12;push r13;push r14');
@@ -445,7 +446,8 @@ Tester.test({
         const cb = (cmd:string, origin:string, ctx:CommandContext) => {
             if (cmd === '/__dummy_command') {
                 passed = origin === 'Server';
-                this.assert(ctx.origin.getDimension().vftable.equals(proc2['??_7OverworldDimension@@6BLevelListener@@@']), 'unexpected dimension');
+                this.assert(ctx.origin.vftable.equals(proc["ServerCommandOrigin::`vftable'"]), 'invalid origin');
+                this.assert(ctx.origin.getDimension().vftable.equals(proc2['??_7OverworldDimension@@6BLevelListener@@@']), 'invalid dimension');
                 const pos = ctx.origin.getWorldPosition();
                 this.assert(pos.x === 0 && pos.y === 0 && pos.z === 0, 'world pos is not zero');
                 const actor = ctx.origin.getEntity();
@@ -473,7 +475,7 @@ Tester.test({
             events.commandOutput.on(outputcb);
             bedrockServer.executeCommandOnConsole('__dummy_command');
         });
-        command.register('registertest', 'bdsx command test').overload((param, origin, output)=>{
+        command.register('testcommand', 'bdsx command test').overload((param, origin, output)=>{
             output.success('passed');
         }, {});
 
@@ -486,7 +488,18 @@ Tester.test({
                 }
             };
             events.commandOutput.on(outputcb);
-            bedrockServer.executeCommandOnConsole('registertest');
+            bedrockServer.executeCommandOnConsole('testcommand');
+        });
+        await new Promise<void>((resolve) => {
+            const outputcb = (output:string) => {
+                if (output === 'passed') {
+                    events.commandOutput.remove(outputcb);
+                    resolve();
+                    return CANCEL;
+                }
+            };
+            events.commandOutput.on(outputcb);
+            this.assert(bedrockServer.executeCommand('testcommand', false).isSuccess(), 'testcommand failed');
         });
     },
 
@@ -507,7 +520,7 @@ Tester.test({
         for (const id in PacketIdToType) {
             try {
                 const Packet = PacketIdToType[+id as keyof PacketIdToType];
-                const packet = Packet.create();
+                const packet = Packet.allocate();
 
                 let getNameResult = packet.getName();
                 const realname = wrongNames.get(getNameResult);
@@ -585,7 +598,7 @@ Tester.test({
             conns.add(ni);
 
             const connreq = ptr.connreq;
-            this.assert(connreq !== null, 'no ConnectionRequest');
+            this.assert(connreq !== null, 'no ConnectionRequest, client version mismatched?');
             if (connreq !== null) {
                 const cert = connreq.cert;
                 let uuid = cert.json.value()["extraData"]["identity"];
@@ -653,6 +666,10 @@ Tester.test({
                         if (!respawnpointCheck) process.exit(-1); // terminate it for not saving it.
 
                         actor.setRespawnPosition(pos, dim);
+
+                        const item = ItemStack.constructWith('minecraft:bread');
+                        actor.addItem(item);
+                        item.destruct();
                     }
 
                     if (identifier === 'minecraft:player') {
@@ -743,6 +760,10 @@ Tester.test({
     etc() {
         const item = ItemStack.constructWith('minecraft:acacia_boat');
         item.destruct();
+
+        const level = serverInstance.minecraft.getLevel();
+        const pos = level.getDefaultSpawn();
+        level.setDefaultSpawn(pos);
     },
 
     nbt() {
@@ -814,6 +835,23 @@ Tester.test({
                 })
             ]);
         }
+    },
+
+    itemActor() {
+        events.playerJoin.once(this.wrap((ev)=>{
+            const pos = ev.player.getPosition();
+            const region = ev.player.getRegion();
+            const actor = Actor.summonAt(region, pos, ActorType.Item, -1);
+            this.assert(actor instanceof ItemActor, 'ItemActor summoning');
+            this.assert((actor as ItemActor).itemStack.vftable.equals(proc["ItemStack::`vftable'"]), 'ItemActor.itemStack is not ItemStack');
+            actor.despawn();
+        }));
+    },
+
+    actorRunCommand() {
+        events.playerJoin.once(this.wrap((ev)=>{
+            this.assert(ev.player.runCommand('testcommand').isSuccess(), 'Actor.runCommand failed');
+        }));
     },
 }, true);
 

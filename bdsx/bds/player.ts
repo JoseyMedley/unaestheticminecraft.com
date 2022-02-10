@@ -1,8 +1,7 @@
 import { abstract } from "../common";
 import { AbstractClass, nativeClass } from "../nativeclass";
-import { float32_t, int32_t } from "../nativetype";
 import type { Abilities } from "./abilities";
-import { Actor, ActorUniqueID, DimensionId } from "./actor";
+import { ActorUniqueID, DimensionId, Mob } from "./actor";
 import { AttributeId, AttributeInstance } from "./attribute";
 import { Block } from "./block";
 import type { BlockPos, Vec3 } from "./blockpos";
@@ -15,7 +14,7 @@ import { DisplaySlot } from "./scoreboard";
 import { serverInstance } from "./server";
 import type { SerializedSkin } from "./skin";
 
-export class Player extends Actor {
+export class Player extends Mob {
     abilities: Abilities;
     playerUIContainer: PlayerUIContainer;
     /** @deprecated Use `this.getSpawnDimension()` instead */
@@ -400,18 +399,6 @@ export class ServerPlayer extends Player {
     get networkIdentifier(): NetworkIdentifier {
         return this.getNetworkIdentifier();
     }
-
-    protected _sendInventory(shouldSelectSlot: boolean): void {
-        abstract();
-    }
-
-    /**
-     * Applies knockback to the player
-     */
-    knockback(source: Actor, damage: int32_t, xd: float32_t, zd: float32_t, power: float32_t, height: float32_t, heightCap: float32_t): void {
-        abstract();
-    }
-
     /**
      * Returns the player's NetworkIdentifier
      */
@@ -443,6 +430,9 @@ export class ServerPlayer extends Player {
         abstract();
     }
 
+    protected _sendInventory(shouldSelectSlot: boolean): void {
+        abstract();
+    }
     /**
      * Updates the player's inventory
      * @remarks The shouldSelectSlot parameter seems to be pointless
@@ -481,7 +471,7 @@ export class ServerPlayer extends Player {
      * @param author - Message author (will be put inside the <>)
      */
     sendChat(message: string, author: string): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.Chat;
         pk.name = author;
         pk.message = message;
@@ -497,7 +487,7 @@ export class ServerPlayer extends Player {
      * @param author - Message author (will be put inside the <>)
      */
     sendWhisper(message: string, author: string): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.Whisper;
         pk.name = author;
         pk.message = message;
@@ -513,7 +503,7 @@ export class ServerPlayer extends Player {
      * @param object JSON-Object to encode and send
      */
     sendTextObject(object:RawTextObject): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.TextObject;
         pk.message = JSON.stringify(object);
         this.sendNetworkPacket(pk);
@@ -526,7 +516,7 @@ export class ServerPlayer extends Player {
      * @param message - Message to send
      */
     sendMessage(message: string): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.Raw;
         pk.message = message;
         this.sendNetworkPacket(pk);
@@ -541,7 +531,7 @@ export class ServerPlayer extends Player {
      * @param params - Translation keys to use
      */
     sendJukeboxPopup(message: string, params: string[] = []): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.JukeboxPopup;
         pk.message = message;
         for (const param of params) {
@@ -559,7 +549,7 @@ export class ServerPlayer extends Player {
      * @param params - Translation keys to use
      */
     sendPopup(message: string, params: string[] = []): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.Popup;
         pk.message = message;
         for (const param of params) {
@@ -578,7 +568,7 @@ export class ServerPlayer extends Player {
      * @param params - Translation keys to use
      */
     sendTip(message: string, params: string[] = []): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.Tip;
         pk.message = message;
         for (const param of params) {
@@ -596,7 +586,7 @@ export class ServerPlayer extends Player {
      * @param params - Translation keys
      */
     sendTranslatedMessage(message: string, params: string[] = []): void {
-        const pk = TextPacket.create();
+        const pk = TextPacket.allocate();
         pk.type = TextPacket.Types.Translate;
         pk.message = message;
         pk.params.push(...params);
@@ -615,7 +605,7 @@ export class ServerPlayer extends Player {
      */
     setBossBar(title: string, percent: number, color?: BossEventPacket.Colors): void {
         this.removeBossBar();
-        const pk = BossEventPacket.create();
+        const pk = BossEventPacket.allocate();
         pk.entityUniqueId = this.getUniqueIdBin();
         pk.playerUniqueId = this.getUniqueIdBin();
         pk.type = BossEventPacket.Types.Show;
@@ -630,7 +620,7 @@ export class ServerPlayer extends Player {
      * Resets title duration
      */
     resetTitleDuration(): void {
-        const pk = SetTitlePacket.create();
+        const pk = SetTitlePacket.allocate();
         pk.type = SetTitlePacket.Types.Reset;
         this.sendNetworkPacket(pk);
         pk.dispose();
@@ -645,7 +635,7 @@ export class ServerPlayer extends Player {
      * @param fadeOutTime - fade-out duration (in ticks)
      */
     setTitleDuration(fadeInTime: number, stayTime: number, fadeOutTime: number): void {
-        const pk = SetTitlePacket.create();
+        const pk = SetTitlePacket.allocate();
         pk.type = SetTitlePacket.Types.AnimationTimes;
         pk.fadeInTime = fadeInTime;
         pk.stayTime = stayTime;
@@ -661,7 +651,7 @@ export class ServerPlayer extends Player {
      * @param subtitle - Subtitle text
      */
     sendTitle(title: string, subtitle?: string): void {
-        const pk = SetTitlePacket.create();
+        const pk = SetTitlePacket.allocate();
         pk.type = SetTitlePacket.Types.Title;
         pk.text = title;
         this.sendNetworkPacket(pk);
@@ -676,7 +666,7 @@ export class ServerPlayer extends Player {
      * @param subtitle - subtitle text
      */
     sendSubtitle(subtitle: string): void {
-        const pk = SetTitlePacket.create();
+        const pk = SetTitlePacket.allocate();
         pk.type = SetTitlePacket.Types.Subtitle;
         pk.text = subtitle;
         this.sendNetworkPacket(pk);
@@ -688,7 +678,7 @@ export class ServerPlayer extends Player {
      * @remarks Will not affect actionbar and other popups
      */
     clearTitle(): void {
-        const pk = SetTitlePacket.create();
+        const pk = SetTitlePacket.allocate();
         pk.type = SetTitlePacket.Types.Clear;
         this.sendNetworkPacket(pk);
         pk.dispose();
@@ -701,7 +691,7 @@ export class ServerPlayer extends Player {
      * @param actionbar - Actionbar text
      */
     sendActionbar(actionbar: string): void {
-        const pk = SetTitlePacket.create();
+        const pk = SetTitlePacket.allocate();
         pk.type = SetTitlePacket.Types.Actionbar;
         pk.text = actionbar;
         this.sendNetworkPacket(pk);
@@ -712,7 +702,7 @@ export class ServerPlayer extends Player {
      * Removes the bossbar
      */
     removeBossBar(): void {
-        const pk = BossEventPacket.create();
+        const pk = BossEventPacket.allocate();
         pk.entityUniqueId = this.getUniqueIdBin();
         pk.playerUniqueId = this.getUniqueIdBin();
         pk.type = BossEventPacket.Types.Hide;
@@ -732,7 +722,7 @@ export class ServerPlayer extends Player {
     setFakeScoreboard(title: string, lines: Array<string | [string, number]>, name: string = `tmp-${new Date().getTime()}`): string {
         this.removeFakeScoreboard();
         {
-            const pk = SetDisplayObjectivePacket.create();
+            const pk = SetDisplayObjectivePacket.allocate();
             pk.displaySlot = DisplaySlot.Sidebar;
             pk.objectiveName = name;
             pk.displayName = title;
@@ -741,7 +731,7 @@ export class ServerPlayer extends Player {
             pk.dispose();
         }
         {
-            const pk = SetScorePacket.create();
+            const pk = SetScorePacket.allocate();
             pk.type = SetScorePacket.Type.CHANGE;
             const entries: Array<ScorePacketInfo> = [];
             for (const [i, line] of lines.entries()) {
@@ -772,7 +762,7 @@ export class ServerPlayer extends Player {
      * Removes scoreboard
      */
     removeFakeScoreboard(): void {
-        const pk = SetDisplayObjectivePacket.create();
+        const pk = SetDisplayObjectivePacket.allocate();
         pk.displaySlot = DisplaySlot.Sidebar;
         pk.objectiveName = "";
         pk.displayName = "";
@@ -788,7 +778,7 @@ export class ServerPlayer extends Player {
      * @param port - Server port
      */
     transferServer(address: string, port: number = 19132): void {
-        const pk = TransferPacket.create();
+        const pk = TransferPacket.allocate();
         pk.address = address;
         pk.port = port;
         this.sendNetworkPacket(pk);

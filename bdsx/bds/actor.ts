@@ -3,11 +3,11 @@ import { CircularDetector } from "../circulardetector";
 import { abstract } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
 import { AbstractClass, nativeClass, NativeClass, nativeField } from "../nativeclass";
-import { bin64_t, CxxString, int32_t, int64_as_float_t } from "../nativetype";
+import { bin64_t, CxxString, float32_t, int32_t, int64_as_float_t } from "../nativetype";
 import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
 import type { BlockSource } from "./block";
 import type { Vec2, Vec3 } from "./blockpos";
-import type { CommandPermissionLevel } from "./command";
+import type { CommandPermissionLevel, MCRESULT } from "./command";
 import { Dimension } from "./dimension";
 import { MobEffect, MobEffectIds, MobEffectInstance } from "./effects";
 import { HashedString } from "./hashedstring";
@@ -227,6 +227,11 @@ export class ActorDamageSource extends NativeClass{
         abstract();
     }
 
+    getDamagingEntity():Actor|null {
+        const uniqueId = this.getDamagingEntityUniqueID();
+        return Actor.fromUniqueIdBin(uniqueId);
+    }
+
     getDamagingEntityUniqueID():ActorUniqueID {
         abstract();
     }
@@ -414,11 +419,11 @@ export class Actor extends AbstractClass {
 
     /**
      * Summon a new entity
-     * @example Actor.summonAt(player.getRegion(), player.getPosition(), ActorDefinitionIdentifier.create(ActorType.Pig), -1, player)
+     * @example Actor.summonAt(player.getRegion(), player.getPosition(), ActorType.Pig, -1, player)
      * */
-    static summonAt(region:BlockSource, pos:Vec3, type:ActorDefinitionIdentifier, id:ActorUniqueID, summoner?:Actor):Actor;
-    static summonAt(region:BlockSource, pos:Vec3, type:ActorDefinitionIdentifier, id:int64_as_float_t, summoner?:Actor):Actor;
-    static summonAt(region:BlockSource, pos:Vec3, type:ActorDefinitionIdentifier, id:ActorUniqueID|int64_as_float_t, summoner?:Actor):Actor {
+    static summonAt(region:BlockSource, pos:Vec3, type:ActorDefinitionIdentifier|ActorType, id:ActorUniqueID, summoner?:Actor):Actor;
+    static summonAt(region:BlockSource, pos:Vec3, type:ActorDefinitionIdentifier|ActorType, id:int64_as_float_t, summoner?:Actor):Actor;
+    static summonAt(region:BlockSource, pos:Vec3, type:ActorDefinitionIdentifier|ActorType, id:ActorUniqueID|int64_as_float_t, summoner?:Actor):Actor {
         abstract();
     }
 
@@ -465,6 +470,12 @@ export class Actor extends AbstractClass {
         abstract();
     }
     /**
+     * @alias instanceof Mob
+     */
+    isMob():this is Mob {
+        abstract();
+    }
+    /**
      * @alias instanceof ServerPlayer
      */
     isPlayer():this is ServerPlayer {
@@ -477,6 +488,9 @@ export class Actor extends AbstractClass {
         abstract();
     }
     isSneaking(): boolean {
+        abstract();
+    }
+    hasType(type:ActorType): boolean {
         abstract();
     }
     /**
@@ -538,6 +552,12 @@ export class Actor extends AbstractClass {
      * Returns the entity's position
      */
     getPosition():Vec3 {
+        abstract();
+    }
+    /**
+     * Returns the entity's feet position
+     */
+    getFeetPos():Vec3 {
         abstract();
     }
     /**
@@ -663,25 +683,33 @@ export class Actor extends AbstractClass {
         return retval;
     }
     /**
-     * Adds a tag to the entity
-     *
+     * Adds a tag to the entity.
+     * Related functions: {@link getTags}, {@link removeTag}, {@link hasTag}
      * @returns {boolean} Whether the tag has been added successfully
      */
     addTag(tag:string):boolean {
         abstract();
     }
     /**
-     * Returns whether the entity has the tag
+     * Returns whether the entity has the tag.
+     * Related functions: {@link getTags}, {@link addTag}, {@link removeTag}
      */
     hasTag(tag:string):boolean {
         abstract();
     }
     /**
-     * Remove a tag from the entity
-     *
+     * Removes a tag from the entity.
+     * Related functions: {@link getTags}, {@link addTag}, {@link hasTag}
      * @returns {boolean} Whether the tag has been removed successfully
      */
     removeTag(tag:string):boolean {
+        abstract();
+    }
+    /**
+     * Returns tags the entity has.
+     * Related functions: {@link addTag}, {@link removeTag}, {@link hasTag}
+     */
+    getTags(): string[] {
         abstract();
     }
     /**
@@ -740,10 +768,13 @@ export class Actor extends AbstractClass {
     protected hurt_(source: ActorDamageSource, damage:number, knock: boolean, ignite: boolean): boolean {
         abstract();
     }
-    hurt(cause: ActorDamageCause, damage: number, knock: boolean, ignite: boolean): boolean {
-        const source = ActorDamageSource.constructWith(cause);
+    hurt(source: ActorDamageSource, damage: number, knock: boolean, ignite: boolean): boolean;
+    hurt(cause: ActorDamageCause, damage: number, knock: boolean, ignite: boolean): boolean;
+    hurt(sourceOrCause: ActorDamageSource|ActorDamageCause, damage: number, knock: boolean, ignite: boolean): boolean {
+        const isSource = sourceOrCause instanceof ActorDamageSource;
+        const source = isSource ? sourceOrCause : ActorDamageSource.constructWith(sourceOrCause);
         const retval = this.hurt_(source, damage, knock, ignite);
-        source.destruct();
+        if(!isSource) source.destruct();
         return retval;
     }
     /**
@@ -765,6 +796,12 @@ export class Actor extends AbstractClass {
      * Returns the Level instance of the entity currently in
      */
     getLevel():Level {
+        abstract();
+    }
+    /**
+     * Returns if the entity is invisible
+     */
+    isInvisible(): boolean {
         abstract();
     }
     /**
@@ -802,6 +839,18 @@ export class Actor extends AbstractClass {
             obj.pos = this.getPosition();
             obj.type = this.getEntityTypeId();
         });
+    }
+    runCommand(command:string, mute:boolean = true, permissionLevel?:CommandPermissionLevel): MCRESULT{
+        abstract();
+    }
+}
+
+export class Mob extends Actor {
+    /**
+     * Applies knockback to the mob
+     */
+    knockback(source: Actor | null, damage: int32_t, xd: float32_t, zd: float32_t, power: float32_t, height: float32_t, heightCap: float32_t): void {
+        abstract();
     }
 }
 

@@ -1,11 +1,15 @@
+import * as colors from 'colors';
+import * as readline from 'readline';
 import { createAbstractObject } from "./abstractobject";
 import { asmcode } from "./asm/asmcode";
 import { asm, Register } from "./assembler";
 import { CommandContext, MCRESULT } from "./bds/command";
-import { CommandOrigin, ServerCommandOrigin } from "./bds/commandorigin";
+import { ServerCommandOrigin } from "./bds/commandorigin";
 import { Dimension } from "./bds/dimension";
 import { ServerLevel } from "./bds/level";
+import * as nimodule from './bds/networkidentifier';
 import { proc, procHacker } from "./bds/proc";
+import * as bd_server from './bds/server';
 import { capi } from "./capi";
 import { CANCEL, Encoding } from "./common";
 import { Config } from "./config";
@@ -16,16 +20,10 @@ import { events } from "./event";
 import { GetLine } from "./getline";
 import { makefunc } from "./makefunc";
 import { bool_t, CxxString, int32_t, int64_as_float_t, NativeType, void_t } from "./nativetype";
-import { CxxStringWrapper, Wrapper } from "./pointer";
-import { SharedPtr } from "./sharedpointer";
+import { CxxStringWrapper } from "./pointer";
 import { remapError } from "./source-map-support";
 import { MemoryUnlocker } from "./unlocker";
 import { _tickCallback } from "./util";
-
-import readline = require("readline");
-import colors = require('colors');
-import bd_server = require("./bds/server");
-import nimodule = require("./bds/networkidentifier");
 
 declare module 'colors' {
 
@@ -102,7 +100,7 @@ function patchForStdio():void {
             console.log(line);
         }
     }, void_t, {onError: asmcode.jsend_returnZero, name:`CommandOutputSenderHookCallback`}, int64_as_float_t, StaticPointer);
-    procHacker.patching('hook-command-output', 'CommandOutputSender::send', 0x1A9, asmcode.CommandOutputSenderHook, Register.rax, true, [
+    procHacker.patching('hook-command-output', 'CommandOutputSender::send', 0x1BA, asmcode.CommandOutputSenderHook, Register.rax, true, [
         0xE8, 0xFF, 0xFF, 0xFF, 0xFF,               // call <bedrock_server.class std::basic_ostream<char,struct std::char_traits<char> > & __ptr64 __cdecl std::_Insert_string<char,struct std::char_traits<char>,unsigned __int64>(class std::basic_ostream<char,struct std::char_traits<char> > & __ptr64,char const * __ptr64 const,uns>
         0x48, 0x8D, 0x15, 0xFF, 0xFF, 0xFF, 0xFF,   // lea rdx,qword ptr ds:[<class std::basic_ostream<char,struct std::char_traits<char> > & __ptr64 __cdecl std::flush<char,struct std::char_traits<char> >(class std::basic_ostream<char,struct std::char_traits<char> > & __ptr64)>]
         0x48, 0x8B, 0xC8,                           // mov rcx,rax
@@ -151,7 +149,9 @@ function _launch(asyncResolve:()=>void):void {
         events.serverClose.fire();
         events.serverClose.clear();
         _tickCallback();
-        decay(bd_server.serverInstance);
+        if (openIsFired) {
+            decay(bd_server.serverInstance);
+        }
     }
 
     // replace unicode encoder
@@ -170,7 +170,14 @@ function _launch(asyncResolve:()=>void):void {
     asmcode.WaitForSingleObject = dll.kernel32.WaitForSingleObject.pointer;
 
     // call game thread entry
-    asmcode.gameThreadInner = proc['<lambda_58543e61c869eb14b8c48d51d3fe120b>::operator()'];
+    asmcode.gameThreadStart = makefunc.np(()=>{
+        // empty
+    }, void_t);
+    asmcode.gameThreadFinish = makefunc.np(()=>{
+        decay(bd_server.serverInstance);
+        decay(nimodule.networkHandler);
+    }, void_t);
+    asmcode.gameThreadInner = proc['<lambda_5d63f534eeadf9e385a3ddce5663beb8>::operator()'];
     asmcode.free = dll.ucrtbase.free.pointer;
 
     // hook game thread
@@ -178,7 +185,7 @@ function _launch(asyncResolve:()=>void):void {
 
     procHacker.patching(
         'hook-game-thread',
-        'std::thread::_Invoke<std::tuple<<lambda_58543e61c869eb14b8c48d51d3fe120b> >,0>', // caller of ServerInstance::_update
+        'std::thread::_Invoke<std::tuple<<lambda_5d63f534eeadf9e385a3ddce5663beb8> >,0>', // caller of ServerInstance::_update
         6,
         asmcode.gameThreadHook, // original depended
         Register.rax,
@@ -200,19 +207,19 @@ function _launch(asyncResolve:()=>void):void {
     ], [5, 9]);
 
     // enable script
-    procHacker.nopping('force-enable-script', 'MinecraftServerScriptEngine::onServerThreadStarted', 0x38, [
+    procHacker.nopping('force-enable-script', 'MinecraftServerScriptEngine::onServerThreadStarted', 0x3E, [
         0xE8, 0xFF, 0xFF, 0xFF, 0xFF,       // call <bedrock_server.public: static bool __cdecl ScriptEngine::isScriptingEnabled(void)>
         0x84, 0xC0,                         // test al,al
         0x0F, 0x84, 0xFF, 0xFF, 0xFF, 0xFF, // je bedrock_server.7FF7345226F3
-        0x48, 0x8B, 0x13,                   // mov rdx,qword ptr ds:[rbx]                                                                                                                                                                                                                                                                          | rdx:&"졧\\직\x7F", rbx:L"뛠펇ǳ"
-        0x48, 0x8B, 0xCB,                   // mov rcx,rbx                                                                                                                                                                                                                                                                                         | rbx:L"뛠펇ǳ"
-        0xFF, 0x92, 0x90, 0x04, 0x00, 0x00, // call qword ptr ds:[rdx+490]
+        0x48, 0x8B, 0x16,                   // mov rdx,qword ptr ds:[rsi]
+        0x48, 0x8B, 0xCE,                   // mov rcx,rsi
+        0xFF, 0x92, 0x88, 0x04, 0x00, 0x00, // call qword ptr ds:[rdx+488]
         0x48, 0x8B, 0xC8,                   // mov rcx,rax
         0xE8, 0xff, 0xff, 0xff, 0xff,       // call <bedrock_server.public: class Experiments & __ptr64 __cdecl LevelData::getExperiments(void) __ptr64>
         0x48, 0x8B, 0xC8,                   // mov rcx,rax
         0xE8, 0xFF, 0xFF, 0xFF, 0xFF,       // call <bedrock_server.public: bool __cdecl Experiments::Scripting(void)const __ptr64>
         0x84, 0xC0,                         // test al,al
-        0x0F, 0x84, 0x06, 0x01, 0x00, 0x00, // je bedrock_server.7FF658BDDB5F
+        0x0F, 0x84, 0xff, 0x01, 0x00, 0x00, // je bedrock_server.7FF658BDDB5F
     ], [1, 5, 9, 13, 16, 20, 29, 33, 37, 41]);
 
     patchForStdio();
@@ -235,8 +242,8 @@ function _launch(asyncResolve:()=>void):void {
     // and bdsx will hijack the game thread and run it on the node thread.
     const [threadHandle] = capi.createThread(asmcode.wrapped_main, null);
 
-    require('./bds/implements');
-    require('./event_impl');
+    import('./bds/implements');
+    import('./event_impl');
 
     loadingIsFired = true;
     events.serverLoading.fire();
@@ -253,8 +260,8 @@ function _launch(asyncResolve:()=>void):void {
     }, void_t, {name: 'events.serverUpdate.fire'});
 
     procHacker.patching('update-hook',
-        '<lambda_58543e61c869eb14b8c48d51d3fe120b>::operator()', // caller of ServerInstance::_update
-        0x5fb, asmcode.updateWithSleep, Register.rcx, true, [
+        '<lambda_5d63f534eeadf9e385a3ddce5663beb8>::operator()', // caller of ServerInstance::_update
+        0x7f3, asmcode.updateWithSleep, Register.rcx, true, [
             0xE8, 0xFF, 0xFF, 0xFF, 0xFF,  // call <bedrock_server._Query_perf_frequency>
             0x48, 0x8B, 0xD8,  // mov rbx,rax
             0xE8, 0xFF, 0xFF, 0xFF, 0xFF,  // call <bedrock_server._Query_perf_counter>
@@ -281,8 +288,12 @@ function _launch(asyncResolve:()=>void):void {
                 _tickCallback();
                 cgate.nodeLoopOnce();
 
-                bd_server.serverInstance = asmcode.serverInstance.as(bd_server.ServerInstance);
-                nimodule.networkHandler = bd_server.serverInstance.networkHandler;
+                Object.defineProperty(bd_server, 'serverInstance', {
+                    value:asmcode.serverInstance.as(bd_server.ServerInstance),
+                });
+                Object.defineProperty(nimodule, 'networkHandler', {
+                    value:bd_server.serverInstance.networkHandler,
+                });
                 openIsFired = true;
                 events.serverOpen.fire();
                 events.serverOpen.clear(); // it will never fire, clear it
@@ -312,30 +323,6 @@ function _launch(asyncResolve:()=>void):void {
 }
 
 const stopfunc = procHacker.js('DedicatedServer::stop', void_t, null, VoidPointer);
-
-const commandVersion = proc['CommandVersion::CurrentVersion'].getInt32();
-const commandContextRefCounterVftable = proc["std::_Ref_count_obj2<CommandContext>::`vftable'"];
-const CommandOriginWrapper = Wrapper.make(CommandOrigin.ref());
-const commandContextConstructor = procHacker.js('CommandContext::CommandContext', void_t, null,
-    CommandContext, CxxString, CommandOriginWrapper, int32_t);
-const CommandContextSharedPtr = SharedPtr.make(CommandContext);
-function createCommandContext(command:CxxString, commandOrigin:Wrapper<CommandOrigin>):SharedPtr<CommandContext> {
-    const sharedptr = new CommandContextSharedPtr(true);
-    sharedptr.create(commandContextRefCounterVftable);
-    commandContextConstructor(sharedptr.p, command, commandOrigin, commandVersion);
-    return sharedptr;
-}
-
-const serverCommandOriginConstructor = procHacker.js('ServerCommandOrigin::ServerCommandOrigin', void_t, null,
-    ServerCommandOrigin, CxxString, ServerLevel, int32_t, Dimension);
-
-function createServerCommandOrigin(name:CxxString, level:ServerLevel, permissionLevel:number, dimension:Dimension|null):Wrapper<CommandOrigin> {
-    const wrapper = new CommandOriginWrapper(true);
-    const origin = capi.malloc(ServerCommandOrigin[NativeType.size]).as(ServerCommandOrigin);
-    wrapper.value = origin;
-    serverCommandOriginConstructor(origin, name, level, permissionLevel, dimension);
-    return wrapper;
-}
 
 const deleteServerCommandOrigin = makefunc.js([0, 0], void_t, {this:ServerCommandOrigin}, int32_t);
 ServerCommandOrigin[NativeType.dtor] = ()=>deleteServerCommandOrigin.call(this, 1);
@@ -413,17 +400,14 @@ export namespace bedrockServer {
      * but call the internal function directly
      */
     export function executeCommand(command:string, mute:boolean=true, permissionLevel:number=4, dimension:Dimension|null = null):MCRESULT {
-        const origin = createServerCommandOrigin('Server',
-            bd_server.serverInstance.minecraft.getLevel() as ServerLevel, // I'm not sure it's always ServerLevel
+        const minecraft = bd_server.serverInstance.minecraft;
+        const origin = ServerCommandOrigin.allocateWith('Server',
+            minecraft.getLevel() as ServerLevel, // I'm not sure it's always ServerLevel
             permissionLevel,
             dimension);
-
-        const ctx = createCommandContext(command, origin);
-        const res = bd_server.serverInstance.minecraft.getCommands().executeCommand(ctx, mute);
-
-        // ctx: no need to destruct, it's destructed by executeCommand.
-        origin.destruct();
-
+        const ctx = CommandContext.constructSharedPtr(command, origin);
+        const res = minecraft.getCommands().executeCommand(ctx, mute);
+        // ctx, origin: no need to destruct, it's destructed by internal functions.
         return res;
     }
 

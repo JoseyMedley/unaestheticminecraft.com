@@ -32,10 +32,11 @@ ReadOnlyBinaryStream.prototype.read = makefunc.js([0x8], bool_t, {this: ReadOnly
 
 @nativeClass(null)
 class OnPacketRBP extends AbstractClass {
+    // stack memories of NetworkHandler::_sortAndPacketizeEvents
     @nativeField(SharedPtr.make(Packet), 0xb8)
-    packet:SharedPtr<Packet>;
-    @nativeField(ReadOnlyBinaryStream, 0x100)
-    stream:ReadOnlyBinaryStream;
+    packet:SharedPtr<Packet>; // accessed in NetworkHandler::_sortAndPacketizeEvents before calling MinecraftPackets::createPacket
+    @nativeField(ReadOnlyBinaryStream, 0x120)
+    stream:ReadOnlyBinaryStream; // accessed in NetworkHandler::_sortAndPacketizeEvents at getting the packet id
 }
 
 asmcode.createPacketRaw = proc["MinecraftPackets::createPacket"];
@@ -49,21 +50,15 @@ function onPacketRaw(rbp:OnPacketRBP, packetId:MinecraftPacketIds, conn:NetworkH
             const data = s.data;
             const rawpacketptr = data.valueptr;
 
-            const ptrs:VoidPointer[] = [];
-            try {
-                for (const listener of target.allListeners()) {
-                    const ptr = rawpacketptr.add();
-                    ptrs.push(ptr);
-                    try {
-                        if (listener(ptr, data.length, ni, packetId) === CANCEL) {
-                            return null;
-                        }
-                    } catch (err) {
-                        events.errorFire(err);
+            for (const listener of target.allListeners()) {
+                const ptr = rawpacketptr.add();
+                try {
+                    if (listener(ptr, data.length, ni, packetId) === CANCEL) {
+                        return null;
                     }
-                }
-            } finally {
-                for (const ptr of ptrs) {
+                } catch (err) {
+                    events.errorFire(err);
+                } finally {
                     decay(ptr);
                 }
             }
@@ -186,22 +181,22 @@ function onPacketSendInternal(handler:NetworkHandler, ni:NetworkIdentifier, pack
 bedrockServer.withLoading().then(()=>{
     // hook raw
     asmcode.onPacketRaw = makefunc.np(onPacketRaw, PacketSharedPtr, null, OnPacketRBP, int32_t, NetworkHandler.Connection);
-    procHacker.patching('hook-packet-raw', 'NetworkHandler::_sortAndPacketizeEvents', 0x1f1,
+    procHacker.patching('hook-packet-raw', 'NetworkHandler::_sortAndPacketizeEvents', 0x1f0,
         asmcode.packetRawHook, Register.rax, true, [
             0x8B, 0xD6,                               // mov edx,esi
-            0x48, 0x8D, 0x8D, 0xB8, 0x00, 0x00, 0x00, // lea rcx,qword ptr ss:[rbp+78]
+            0x48, 0x8D, 0x8D, 0xB8, 0x00, 0x00, 0x00, // lea rcx,qword ptr ss:[rbp+B8]
             0xE8, 0xFF, 0xFF, 0xFF, 0xFF,             // call <bedrock_server.public: static class std::shared_ptr<class Packet> __cdecl MinecraftPackets::createPacket(enum MinecraftPacketIds)>
             0x90,                                     // nop
         ], [10, 14]);
 
     // hook before
     asmcode.onPacketBefore = makefunc.np(onPacketBefore, ExtendedStreamReadResult, {name: 'onPacketBefore'}, ExtendedStreamReadResult, OnPacketRBP, int32_t);
-    procHacker.patching('hook-packet-before', 'NetworkHandler::_sortAndPacketizeEvents', 0x2f4,
+    procHacker.patching('hook-packet-before', 'NetworkHandler::_sortAndPacketizeEvents', 0x2f2,
         asmcode.packetBeforeHook, // original code depended
         Register.rax,
         true, [
             0x48, 0x8B, 0x01, // mov rax,qword ptr ds:[rcx]
-            0x4C, 0x8D, 0x85, 0x00, 0x01, 0x00, 0x00, // lea r8,qword ptr ss:[rbp+100]
+            0x4C, 0x8D, 0x85, 0x20, 0x01, 0x00, 0x00, // lea r8,qword ptr ss:[rbp+100]
             0x48, 0x8D, 0x55, 0xE0, //lea rdx,qword ptr ss:[rbp-20]
             0xFF, 0x50, 0x20, // call qword ptr ds:[rax+20]
         ], []);
@@ -223,7 +218,7 @@ bedrockServer.withLoading().then(()=>{
 
     // hook after
     asmcode.onPacketAfter = makefunc.np(onPacketAfter, void_t, null, OnPacketRBP);
-    procHacker.patching('hook-packet-after', 'NetworkHandler::_sortAndPacketizeEvents', 0x475,
+    procHacker.patching('hook-packet-after', 'NetworkHandler::_sortAndPacketizeEvents', 0x46f,
         asmcode.packetAfterHook, // original code depended
         Register.rax, true, [
             0x48, 0x8B, 0x01, // mov rax,qword ptr ds:[rcx]
@@ -240,7 +235,7 @@ bedrockServer.withLoading().then(()=>{
         asmcode.packetSendAllHook, // original code depended
         Register.rax, true, [
             0x49, 0x8B, 0x07, // mov rax,qword ptr ds:[r15]
-            0x49, 0x8D, 0x96, 0x48, 0x02, 0x00, 0x00, // lea rdx,qword ptr ds:[r14+248]
+            0x49, 0x8D, 0x96, 0x50, 0x02, 0x00, 0x00, // lea rdx,qword ptr ds:[r14+248]
             0x49, 0x8B, 0xCF, // mov rcx,r15
             0xFF, 0x50, 0x18, // call qword ptr ds:[rax+18]
         ], []);

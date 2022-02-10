@@ -16,9 +16,6 @@ export class Dimension extends NativeClass {
         return this.getBlockSource();
     }
 
-    /**
-     * Returns a BlockSource instance last ticked by a player
-     */
     getBlockSource():BlockSource {
         abstract();
     }
@@ -30,6 +27,6 @@ export class Dimension extends NativeClass {
     }
 }
 
-Dimension.prototype.getBlockSource = procHacker.js('Dimension::getBlockSourceDEPRECATEDUSEPLAYERREGIONINSTEAD', BlockSource, {this:Dimension});
+Dimension.prototype.getBlockSource = procHacker.js('Dimension::getBlockSourceFromMainChunkSource', BlockSource, {this:Dimension});
 Dimension.prototype.getChunkSource = procHacker.js('Dimension::getChunkSource', ChunkSource, {this:Dimension});
 Dimension.prototype.getDimensionId = procHacker.js('Dimension::getDimensionId', int32_t, {this:Dimension, structureReturn:true});

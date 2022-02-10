@@ -1,3 +1,4 @@
+import * as util from 'util';
 import { NativePointer, VoidPointer } from "./core";
 import { dll } from "./dll";
 import { makefunc } from "./makefunc";
@@ -6,7 +7,6 @@ import { NativeClass, NativeClassType } from "./nativeclass";
 import { NativeType, Type } from "./nativetype";
 import { Singleton } from "./singleton";
 import { templateName } from "./templatename";
-import util = require('util');
 
 export interface CxxVectorType<T> extends NativeClassType<CxxVector<T>> {
     new(address?:VoidPointer|boolean):CxxVector<T>;
@@ -580,7 +580,7 @@ export class CxxVectorToArray<T> extends NativeType<T[]> {
             undefined,
             (ptr, offset)=>ptr.addAs(this.type, offset).toArray(),
             (ptr, v, offset)=>ptr.addAs(this.type, offset).setFromArray(v),
-            stackptr=>stackptr.getPointerAs(this.type).toArray(),
+            (stackptr, offset)=>stackptr.getPointerAs(this.type, offset).toArray(),
             (stackptr, param, offset)=>{
                 const buf = new this.type(true);
                 buf.construct();
@@ -588,7 +588,7 @@ export class CxxVectorToArray<T> extends NativeType<T[]> {
                 makefunc.temporalDtors.push(()=>buf.destruct());
                 stackptr.setPointer(buf, offset);
             },
-            ptr=>dll.vcruntime140.memset(ptr, 0, VECTOR_SIZE),
+            ptr=>ptr.fill(0, VECTOR_SIZE),
             ptr=>{
                 const beg = ptr.getPointer(0);
                 const cap = ptr.getPointer(16);

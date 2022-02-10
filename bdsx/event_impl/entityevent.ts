@@ -1,6 +1,8 @@
 import { Actor, ActorDamageCause, ActorDamageSource, ItemActor } from "../bds/actor";
+import { BlockPos, Vec3 } from "../bds/blockpos";
 import { ProjectileComponent, SplashPotionEffectSubcomponent } from "../bds/components";
 import { ComplexInventoryTransaction, ContainerId, InventorySource, InventorySourceType, ItemStack } from "../bds/inventory";
+import { BedSleepingResult } from "../bds/level";
 import { ServerNetworkHandler } from "../bds/networkidentifier";
 import { MinecraftPacketIds } from "../bds/packetids";
 import { CompletedUsingItemPacket, ScriptCustomEventPacket } from "../bds/packets";
@@ -13,8 +15,6 @@ import { events } from "../event";
 import { makefunc } from "../makefunc";
 import { bool_t, float32_t, int32_t, uint8_t, void_t } from "../nativetype";
 import { Wrapper } from "../pointer";
-import { BlockPos } from "../bds/blockpos";
-import { BedSleepingResult } from "../bds/level";
 
 export class EntityHurtEvent {
     constructor(
@@ -254,16 +254,19 @@ function onItemUse(itemStack: ItemStack, player: Player): ItemStack {
 }
 const _onItemUse = procHacker.hooking("ItemStack::use", ItemStack, null, ItemStack, Player)(onItemUse);
 
-function onItemUseOnBlock(itemStack: ItemStack, actor: Actor, x: int32_t, y: int32_t, z: int32_t, face: uint8_t, clickX: float32_t, clickY: float32_t, clickZ: float32_t): bool_t {
-    const event = new ItemUseOnBlockEvent(itemStack, actor, x, y, z, face, clickX, clickY, clickZ);
+function onItemUseOnBlock(itemStack: ItemStack, actor: Actor, x: int32_t, y: int32_t, z: int32_t, face: uint8_t, clickPos: Vec3): bool_t {
+    const event = new ItemUseOnBlockEvent(itemStack, actor, x, y, z, face, clickPos.x, clickPos.y, clickPos.z);
     const canceled = events.itemUseOnBlock.fire(event) === CANCEL;
     decay(itemStack);
     if(canceled) {
         return false;
     }
-    return _onItemUseOnBlock(event.itemStack, event.actor, event.x, event.y, event.z, event.face, event.clickX, event.clickY, event.clickZ);
+    clickPos.x = event.clickX;
+    clickPos.y = event.clickY;
+    clickPos.z = event.clickZ;
+    return _onItemUseOnBlock(event.itemStack, event.actor, event.x, event.y, event.z, event.face, clickPos);
 }
-const _onItemUseOnBlock = procHacker.hooking("ItemStack::useOn", bool_t, null, ItemStack, Actor, int32_t, int32_t, int32_t, uint8_t, float32_t, float32_t, float32_t)(onItemUseOnBlock);
+const _onItemUseOnBlock = procHacker.hooking("ItemStack::useOn", bool_t, null, ItemStack, Actor, int32_t, int32_t, int32_t, uint8_t, Vec3)(onItemUseOnBlock);
 
 function onPlayerCrit(player: Player):void {
     const event = new PlayerCritEvent(player);

@@ -1,5 +1,6 @@
+import { CommandParameterType } from "../commandparam";
 import { nativeClass, NativeClass, nativeField } from "../nativeclass";
-import { bin64_t, bool_t, float32_t, int32_t, NativeType, uint16_t, uint32_t, uint8_t } from "../nativetype";
+import { bin64_t, bool_t, float32_t, int32_t, NativeType, uint16_t, uint8_t } from "../nativetype";
 
 export enum Facing {
     Down,
@@ -160,6 +161,7 @@ export class Vec3 extends NativeClass {
 
 @nativeClass()
 export class RelativeFloat extends NativeClass {
+    static readonly [CommandParameterType.symbol]:true;
     static readonly [NativeType.registerDirect] = true;
     @nativeField(float32_t)
     value:float32_t;

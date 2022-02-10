@@ -1,9 +1,11 @@
 
 import { proc, proc2 } from './bds/symbols';
+import { CommandParameterType } from './commandparam';
 import { abstract, emptyFunc } from './common';
 import { AllocatedPointer, StaticPointer, VoidPointer } from './core';
 import { makefunc } from './makefunc';
 import { Singleton } from './singleton';
+import { templateName } from './templatename';
 import { filterToIdentifierableString } from './util';
 
 namespace NativeTypeFn {
@@ -220,7 +222,7 @@ export class NativeType<T> extends makefunc.ParamableT<T> implements Type<T> {
         return this[NativeTypeFn.bitGetter] !== abstract;
     }
 
-    extends<FIELDS>(fields?:FIELDS, symbol?:string, name?:string):NativeType<T>&FIELDS {
+    extends<FIELDS>(fields?:FIELDS, symbol?:string, name?:string):null extends FIELDS ? NativeType<T> : NativeType<T>&FIELDS {
         const type = this;
         const ntype = new NativeType(
             symbol ?? this.symbol,
@@ -307,10 +309,14 @@ export class NativeType<T> extends makefunc.ParamableT<T> implements Type<T> {
 }
 NativeType.prototype[NativeTypeFn.descriptor] = NativeType.defaultDescriptor;
 
+export class CommandParameterNativeType<T> extends NativeType<T> {
+    readonly [CommandParameterType.symbol]:true;
+}
+
 function makeReference<T>(type:NativeType<T>):NativeType<T> {
     return new NativeType<T>(
         `${type.name}*`,
-        `${type.symbol}*`,
+        `${type.symbol} * __ptr64`,
         8, 8,
         type.isTypeOf,
         type.isTypeOfWeak,
@@ -362,7 +368,7 @@ export const void_t = new NativeType<void>(
     emptyFunc,
     emptyFunc);
 export type void_t = void;
-export const bool_t = new NativeType<boolean>(
+export const bool_t = new CommandParameterNativeType<boolean>(
     'bool', 'bool_t',
     1, 1,
     v=>typeof v === 'boolean',
@@ -460,7 +466,7 @@ export const int16_t = new NativeType<number>(
 export type int16_t = number;
 int16_t[NativeTypeFn.bitGetter] = numericBitGetter;
 int16_t[NativeTypeFn.bitSetter] = numericBitSetter;
-export const int32_t = new NativeType<number>(
+export const int32_t = new CommandParameterNativeType<number>(
     'int', 'int32_t',
     4, 4,
     v=>typeof v === 'number' && (v|0) === v,
@@ -495,7 +501,7 @@ export const int64_as_float_t = new NativeType<number>(
     int32To64);
 export type int64_as_float_t = number;
 
-export const float32_t = new NativeType<number>(
+export const float32_t = new CommandParameterNativeType<number>(
     'float', 'float32_t',
     4, 4,
     isNumber,
@@ -521,7 +527,7 @@ const string_dtor = makefunc.js(proc['std::basic_string<char,std::char_traits<ch
 
 const strbufCache:AllocatedPointer[] = [];
 
-export const CxxString = new NativeType<string>(
+export const CxxString = new CommandParameterNativeType<string>(
     'std::basic_string<char,std::char_traits<char>,std::allocator<char> >', 'CxxString',
     0x20, 8,
     v=>typeof v === 'string',
@@ -619,3 +625,44 @@ export type bin128_t = string;
 export const CxxStringWith8Bytes = CxxString.extends();
 CxxStringWith8Bytes[NativeType.size] = 0x28;
 export type CxxStringWith8Bytes = string;
+
+function getSpanName(type:Type<any>):string {
+    return templateName('gsl::span', type.symbol || type.name, '-1');
+}
+
+export class GslSpanToArray<T> extends NativeType<T[]> {
+    private constructor(public readonly compType:Type<T>) {
+        super(getSpanName(compType), `GslSpanToArray<${compType.name}>`, 0x10, 8,
+            v=>v instanceof Array,
+            undefined,
+            (ptr, offset)=>{
+                const length = ptr.getInt64AsFloat(offset);
+                const out:T[] = new Array(length);
+                const compptr = ptr.getPointer(offset == null ? 8 : offset+8);
+                const compsize = this.compType[makefunc.size];
+                for (let i=0,compoffset=0; i!==length; i++,compoffset+=compsize) {
+                    out[i] = this.compType[makefunc.getter](compptr, compoffset);
+                }
+                return out;
+            },
+            impossible,
+            (stackptr, offset)=>this[NativeType.getter](stackptr.getPointer(offset)),
+            (stackptr, array, offset)=>{
+                const compsize = this.compType[makefunc.size];
+                const buf = new AllocatedPointer(array.length * compsize);
+                makefunc.temporalKeeper.push(buf);
+                let compoffset = 0;
+                for (const comp of array) {
+                    this.compType[makefunc.setter](buf, comp, compoffset);
+                    compoffset += compsize;
+                }
+                stackptr.setPointer(buf, offset);
+            },
+            ptr=>ptr.fill(0, 0x10),
+        );
+    }
+
+    static make<T>(compType:Type<T>):GslSpanToArray<T> {
+        return Singleton.newInstance<GslSpanToArray<T>>(GslSpanToArray, compType, ()=>new GslSpanToArray<T>(compType));
+    }
+}
