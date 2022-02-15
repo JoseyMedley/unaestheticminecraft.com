@@ -53,7 +53,6 @@ import { ServerPlayer } from "bdsx/bds/player";
 import { classicNameResolver } from "typescript";
 import { message } from "blessed";
 
-function run(){
 // Discord Bot Requirements
 const Discord = require('discord.js');
 var bot = new Discord.Client({ disableEveryone: true });
@@ -106,6 +105,7 @@ var serverAlive = true;
 // BDS Startup
 // broken
 //events.serverOpen.on(() => serverAlive = true);
+
 events.serverOpen.on(() => {
     console.log("the event started");
     serverAlive = true;
@@ -131,7 +131,7 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
         if (username) connectionList.set(networkIdentifier, username);
         if ( GetConfig("EnableJoinLeaveMessages") == true ) {
         // Player Join (Extract Username)
-        SendToDiscordEvent(username+ " has joined the server!");
+        SendToDiscordEvent(username + " has joined the server!");
         }
     }
 });
@@ -145,7 +145,7 @@ events.networkDisconnected.on(networkIdentifier => {
 
         // Player Leave (Extract Username)
         if(id != undefined){
-            SendToDiscordEvent(id+" has left the server!");
+            SendToDiscordEvent(id + " has left the server!");
         }
     }
 
@@ -328,6 +328,7 @@ function SendToGame(message: string, user: string, orig_msg: any) {
     }
 };
 
+/*
 function ReloadBot() {
     if ( GetConfig("BotEnabled") == true ) {
 
@@ -348,6 +349,7 @@ function ReloadBot() {
         throw disabled;
     }
 }
+*/
 
 function GetConfig(key: any) {
     const configPath = path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/config.json");
@@ -400,11 +402,6 @@ function AppendVerifiedUser(dcid: string, xuid: string){
     verified_users.users[dcid] = xuid
     fs.writeFileSync("./configs/Discord-Chatter/links.json", JSON.stringify(verified_users, null, 2))
 }
-
-}
-
-try {try {try {try {try {try {try {try {try {try {try {try {try {run()} finally {}} finally {}} finally {}} finally {}}  finally {}} finally {}}  finally {}} finally {}}  finally {}} finally {}}  finally {}} finally {}} finally {}
-
 
 /*function UpdateConfig(key: string, value: string | boolean | undefined) {
     var defaultConfig = {
