@@ -1,13 +1,12 @@
-import { system } from "./example_and_test/bedrockapi-system";
-import { command, bedrockServer } from "bdsx";
-
+//change radius to modify the spawn radius
+const system = server.registerSystem(0, 0);
 var Radius = 872;
 var Multiplier = [1,-1];
-//change radius to modify the spawn radius
-
 console.log("SystemUpdateFunction loaded");
 system.executeCommand("/gamerule showcoordinates true", () => {});
 //var counter = 0;
+
+//runs every tick
 system.update = function () {
 
     // changes spawn location to random point within the specified radius
@@ -20,21 +19,14 @@ system.update = function () {
     system.executeCommand(SpawnCommand, () => {});
     system.executeCommand("/gamerule spawnRadius 128", () => {});
 
-    // remove simple illegals from player inventories and kill illegal entities
-    system.executeCommand("/kill @e[type=npc]", () => {});
-    system.executeCommand("/kill @e[type=command_block_minecart]", () => {});
-    system.executeCommand("/clear @a[tag=!admin] barriers", () => {});
-    system.executeCommand("/clear @a[tag=!admin] bedrock", () => {});
-    system.executeCommand("/clear @a[tag=!admin] end_portal_frame", () => {});
-    system.executeCommand("/clear @a[tag=!admin] deny", () => {});
-    system.executeCommand("/clear @a[tag=!admin] allow", () => {});
-    system.executeCommand("/clear @a[tag=!admin] spawn_egg", () => {});
-    system.executeCommand("/clear @a[tag=!admin] mob_spawner", () => {});
-    system.executeCommand("/clear @a[tag=!admin] jigsaw", () => {});
-
     //patch GMC
-    system.executeCommand("/gamemode s @a[tag=!admin]", () => {});
-    
+    system.executeCommand("/testfor @a[m=c]", (out) => {
+        var iscreative = out.data.statusMessage;
+        if (iscreative != "No Targets Matched Selector"){
+            //system.executeCommand("/gamemode s @a[tag=!admin]", () => {});
+        }
+    });
+
     //doop
     /*
     counter = counter + 1;
