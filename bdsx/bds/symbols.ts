@@ -189,7 +189,7 @@ const symbols = [
     'CommandItem::createInstance',
     'CommandMessage::getMessage',
     'ScriptServerActorEventListener::onActorSneakChanged',
-    'ScriptServerActorEventListener::onActorCreated',
+    'ActorEventCoordinator::sendActorCreated',
     'ScriptServerActorEventListener::onActorDeath',
     'Dimension::getDimensionId',
     'TeleportCommand::computeTarget',
@@ -445,6 +445,10 @@ const symbols = [
     'CommandUtils::getFeetPos',
     'Actor::isInvisible',
     'Actor::hasType',
+    'Player::setCursorSelectedItem',
+    'Player::getPlayerUIItem',
+    'Player::setPlayerUIItem',
+    'Player::getPlatform',
 ] as const;
 
 // decorated symbols
@@ -493,8 +497,6 @@ const symbols2 = [
     '??0CompoundTag@@QEAA@XZ',
     '??0IntArrayTag@@QEAA@XZ',
     '?fromTag@ItemStack@@SA?AV1@AEBVCompoundTag@@@Z',
-    'sprintf',
-    'vsnprintf',
     '?getBlockEntity@BlockSource@@QEAAPEAVBlockActor@@AEBVBlockPos@@@Z',
     '?tryLightFire@CampfireBlock@@SA_NAEAVBlockSource@@AEBVBlockPos@@@Z',
     '?tryDouseFire@CampfireBlock@@SA_NAEAVBlockSource@@AEBVBlockPos@@_N@Z',
@@ -521,6 +523,7 @@ const symbols2 = [
     '??0NetworkItemStackDescriptor@@QEAA@AEBVItemStackDescriptor@@@Z',
     '??0ItemDescriptor@@QEAA@XZ',
     '??0ItemDescriptor@@QEAA@AEBV0@@Z',
+    '?load@ItemStackBase@@QEAAXAEBVCompoundTag@@@Z',
 ] as const;
 
 export const proc = pdb.getList(
