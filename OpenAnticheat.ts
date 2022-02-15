@@ -2,25 +2,26 @@
 import { NetworkIdentifier } from "./bdsx/bds/networkidentifier";
 import { CANCEL } from "./bdsx/common"
 import { MinecraftPacketIds } from "./bdsx/bds/packetids";
-import { system } from "./example_and_test/bedrockapi-system";
-import { connectionList } from "./example_and_test/net-login";
 import { events } from "./bdsx/event";
-import { serverInstance } from "./bdsx/bds/server";
-import { DeviceOS } from "./bdsx/common";
-import { ServerPlayer } from "./bdsx/bds/player";
+import { serverInstance } from "bdsx/bds/server";
+import { DeviceOS } from "bdsx/common";
+import { ServerPlayer } from "bdsx/bds/player";
+import { ByteTag, CompoundTag, IntTag, ListTag, ShortTag } from "bdsx/bds/nbt";
 import { EnchantmentNames, EnchantUtils, ItemEnchants } from "./bdsx/bds/enchants";
+import { BlockPos } from "bdsx/bds/blockpos";
+import { CxxVector } from "bdsx/cxxvector";
+import { int16_t } from "bdsx/nativetype";
 console.log("Open Anticheat loaded");
-
+const system = server.registerSystem(0, 0);
 
 // illegal entities and blocks
-var illegalEntities = ["minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard"];
-var illegalBlocks = ["minecraft:invisiblebedrock", "minecraft:end_portal_frame", "minecraft:mob_spawner", "minecraft:allow", "minecraft:deny",
+var illegalEntities = ["minecraft:ender_dragon", "minecraft:phantom", "minecraft:elder_guardian_ghost", "minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard"];
+var illegalBlocks = ["tile:invisiblebedrock", "minecraft:end_portal_frame", "minecraft:mob_spawner", "minecraft:allow", "minecraft:deny",
 "minecraft:border_block", "minecraft:structure_void", "minecraft:camera", "minecraft:structure_block", "minecraft:nether_reactor", "minecraft:glowingobsidian", "minecraft:barrier",
 "minecraft:command_block", "minecraft:repeating_command_block", "minecraft:chain_command_blocks", "minecraft:bedrock"];
 var illegalItems = [];
 
-//trying to destroy illegal entities
-//probably not working
+//illegal entities patch
 events.entityCreated.on((ev)=>{
     var entity = ev.entity;
     var Id = entity.getEntity().__identifier__;
@@ -30,67 +31,78 @@ events.entityCreated.on((ev)=>{
     }
 });
 
-
 // patch placing illegal blocks
 // working a bit too well
 events.blockPlace.on((ev)=>{
-    var blockName = ev.block.getName();
-    var playername = ev.player.getName();
-    var permissions = ev.player.getPermissionLevel();
-    if (illegalBlocks.indexOf(blockName) != -1 && permissions < 2){
-        console.log("Illegal block: " + blockName + " rejected from player: " + playername);
-        return CANCEL;
+    if (ev.block != null && ev.block != undefined){
+        var blockName = ev.block.getName();
+        if (ev.player != null && ev.player != undefined){
+            var playername = ev.player.getName();
+            var permissions = ev.player.getPermissionLevel();
+            if (illegalBlocks.indexOf(blockName) != -1 && permissions < 2){
+                console.log("Illegal block: " + blockName + " rejected from player: " + playername);
+                return CANCEL;
+            }
+        }
     }
-})
+});
 
+//.give patch
 events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => {
     for (let i = 0; i < size; i++) {
         try {
             if (ptr.readVarUint() === 99999) {
                 var playername = ni.getActor()?.getName();
+                if (playername == undefined) return CANCEL;
                 console.log(playername + " used fake inventory transaction packets");
                 serverInstance.disconnectClient(ni, `I don't .give a shit`);
                 return CANCEL;
             }
-        } catch { }
+        } catch {}
     }
 });
 
-//trying to brick crasher/elytra exploit
-// probably working
+//crasher/elytra patch
 events.packetBefore(MinecraftPacketIds.PlayerAuthInput).on((pk, ni) => {
     if ((pk.moveX === 4294967296 && pk.moveZ === 4294967296) || (pk.pos.x === 4294967296 && pk.pos.y === 4294967296 && pk.pos.z === 4294967296)) {
         var playername = ni.getActor()?.getName();
+        if (playername == undefined) return CANCEL;
         console.log(playername + " used crasher");
         serverInstance.disconnectClient(ni, `Did you really think that shit would work here`);
         return CANCEL;
     }
 });
 
+events.packetRaw(MinecraftPacketIds.Disconnect).on(ev => {
+    console.log("Disconnect DoS attempted");
+    return CANCEL;
+});
 
-
-// block overpowered attacks
-// working
-events.entityHurt.on((ev)=>{
-    var entity = ev.entity.getEntity().__identifier__;
-    var dealtDamage = ev.damage;
-    if (dealtDamage>200 && entity!="minecraft:ender_crystal"){
+events.packetRaw(MinecraftPacketIds.ClientCacheBlobStatus).on(ptr =>{
+    ptr.readVarUint();
+    if (ptr.readVarUint() >= 0xfff){
+        console.log("Overflow DoS attempted");
+        return CANCEL;
+    }
+    if (ptr.readVarUint() >= 0xfff){
+        console.log("Overflow DoS attempted");
         return CANCEL;
     }
 });
 
-events.playerUseItem.on(ev=>{
-});
 //Fakename patch
 //Thanks to Aniketos for this one
 const names = new Map<NetworkIdentifier, string>();
-
+const currentmessages = new Map<NetworkIdentifier, string>();
+const points = new Map<NetworkIdentifier, int16_t>();
 events.packetAfter(MinecraftPacketIds.Login).on((pk, ni) => {
     let connreq = pk.connreq;
     if (!connreq) return;
     let cert = connreq.cert;
     if (connreq.getJsonValue()!.DeviceOS !== DeviceOS.PLAYSTATION) {
         names.set(ni, cert.getIdentityName());
+        currentmessages.set(ni, "");
+        points.set(ni, 0);
     }
 });
 
@@ -105,260 +117,159 @@ events.packetSend(MinecraftPacketIds.PlayStatus).on((pk, ni) => {
     }
 });
 
+let enchants = {
+    "0": "4",
+    "1": "4",
+    "2": "4",
+    "3": "4",
+    "4": "4",
+    "5": "0", //this is thorns. revert this to 3 if it no longer crashes servers
+    "6": "3",
+    "7": "3",
+    "8": "1",
+    "9": "5",
+    "10":"5",
+    "11":"5",
+    "12":"2",
+    "13":"2",
+    "14":"3",
+    "15":"5",
+    "16":"1",
+    "17":"3",
+    "18":"3",
+    "19":"5",
+    "20":"2",
+    "21":"1",
+    "22":"1",
+    "23":"3",
+    "24":"3",
+    "25":"3",
+    "26":"1",
+    "27":"1",
+    "28":"1",
+    "29":"5",
+    "30":"1",
+    "31":"3",
+    "32":"1",
+    "33":"1",
+    "34":"3",
+    "35":"3",
+    "36":"3"
+}
+
+//32k patch. First version by DAMcraft. Improved by thesoulblazer. Then re-made to all items by DAMcraft and modified to the nbt branch
+events.playerInventoryChange.on((ev)=>{
+    let player = ev.player;
+    let inv = player.getInventory().getSlots().toArray().forEach(item => {
+        if (item.getUserData() != null){
+            let ud = item.getUserData();
+            if (ud.get("ench") != null){
+                let ench = (ud.get("ench") as ListTag).data.toArray();
+                ench.forEach(tmp =>{
+                    let enchantment = tmp as CompoundTag;
+                    let lvl = (enchantment.get('lvl') as ShortTag).data;
+                    let id = (enchantment.get('id') as ShortTag).data;
+                    let string_id = "" + id;
+                    let allowed_lvl = enchants[string_id];
+                    if (allowed_lvl < lvl) {
+                        console.log("Reverted a 32k");
+                        enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
+                    }
+                });
+            }
+        }
+    });
+});
+
+function indexOfMin(arr: any[]) {
+    if (arr.length === 0) {
+        return -1;
+    }
+    var min = arr[0];
+    var minIndex = 0;
+    for (var i = 1; i < arr.length; i++) {
+        if (arr[i] < min) {
+            minIndex = i;
+            min = arr[i];
+        }
+    }
+    return minIndex;
+}
+
+var logBackup = console.log;
+var logMessages: any[] = [];
+
+console.log = function() {
+    logMessages.push.apply(logMessages, arguments);
+    logBackup.apply(console, arguments);
+};
+
+events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
+    let x = ev.pos.x;
+    let y = ev.pos.y;
+    let z = ev.pos.z;
+    let onplayers: any[] = [];
+    let distances: any[] = [];
+    serverInstance.getPlayers().forEach(element => {
+        let px = Math.round(element.getPosition().x);
+        let pz = Math.round(element.getPosition().z);
+        // console.log("Player pos: ", px, pz)
+        let diff = Math.round(Math.hypot(px-x, pz-z));
+        // console.log(diff)
+        onplayers.push(element);
+        distances.push(diff);
+    });
+    if (onplayers.length != distances.length){console.log("Somehow more distances got recorded then players.")} //Never happened to me before, but you never know
+    else {
+        let index = indexOfMin(distances);
+        let nearest_player: ServerPlayer = onplayers[index];
+        const region = nearest_player.getRegion();
+        const bpos =  BlockPos.create(x, y, z);
+        const blockEntity = region.getBlockEntity(bpos);
+        if (region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:undyed_shulker_box" || region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:shulker_box"){
+            if (blockEntity != null) {
+                const tag = blockEntity.constructAndSave();
+                const items = tag.get("Items") as ListTag;
+                for (const e of items.data as CxxVector<CompoundTag>) {
+                    if (items != (null || undefined)){
+                        const Name = "" + e.get("Name");
+                        const Slot = ("" + e.get("Slot")).length;
+                        if (Name == "minecraft:shulker_box"){
+                            console.log("Cleared nested shulker from shulker at " + x +" "+ y +" "+ z + " (At slot " + Slot + ")");
+                            if (y > 320){
+                                y = y - 4294967296;
+                                //forgive me jeebus for this bullshit fix
+                            }
+                            system.executeCommand(`/replaceitem block ${x} ${y} ${z} slot.container ` + Slot + " stone", () => {});
+                        }
+                    }
+                }
+                tag.destruct();
+            }
+        }
+    }
+});
+
+events.packetBefore(MinecraftPacketIds.Text).on((ev, ni, packetid) =>{
+    if (ni == undefined) return;
+    var msg = ev.message;
+    var curr = currentmessages.get(ni);
+    if (curr == undefined) return;
+    currentmessages.set(ni, msg);
+    if (curr == msg){
+        var currpoints = points.get(ni);
+        if (currpoints == undefined) return;
+        if (currpoints >= 5){
+            serverInstance.disconnectClient(ni, `Stop fucking spamming`);
+            return CANCEL;
+        }
+        points.set(ni, currpoints + 1);
+        return CANCEL;
+    }
+});
+
 events.networkDisconnected.on(ni => {
     names.delete(ni);
-});
-
-events.packetBefore(MinecraftPacketIds.InventorySlot).on((ev, ni, packetid) =>{
-    var bruh = ev;
-});
-
-//32k patch. First version by DAMcraft. Improved by thesoulblazer
-events.playerInventoryChange.on((ev)=>{
-    var player = ev.player;
-    var helmet = player.getArmor(0);
-    var chest =  player.getArmor(1);
-    var pants =  player.getArmor(2);
-    var boots =  player.getArmor(3);
-    var helmet_ench = helmet.constructItemEnchantsFromUserData();
-    var chest_ench = chest.constructItemEnchantsFromUserData();
-    var pants_ench = pants.constructItemEnchantsFromUserData();
-    var boots_ench = boots.constructItemEnchantsFromUserData();
-    var save = false;
-
-    for (const ench of helmet_ench.enchants1.toArray())
-    {
-        if ((ench.type == 0 || ench.type == 1 || ench.type == 2 || ench.type == 3 || ench.type == 4) && ench.level > 4){
-            ench.level = 4;
-            save = true;
-        }
-        else if (ench.type == 5 && ench.level > 0){
-            ench.level = 0;
-            save = true;
-        }
-        else if (ench.type == 6 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 7 && ench.level > 0){
-            ench.level = 0;
-            save = true;
-        }
-        else if (ench.type == 8 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-    }
-    for (const ench of chest_ench.enchants1.toArray())
-    {
-        if ((ench.type == 0 || ench.type == 1 || ench.type == 2 || ench.type == 3 || ench.type == 4) && ench.level > 4){
-            ench.level = 4;
-            save = true;
-        }
-        else if (ench.type == 5 && ench.level > 0){
-            ench.level = 0;
-            save = true;
-        }
-        else if (ench.type == 6 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 7 && ench.level > 0){
-            ench.level = 0;
-            save = true;
-        }
-        else if (ench.type == 8 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-    }
-    for (const ench of pants_ench.enchants1.toArray())
-    {
-        if ((ench.type == 0 || ench.type == 1 || ench.type == 2 || ench.type == 3 || ench.type == 4) && ench.level > 4){
-            ench.level = 4;
-            save = true;
-        }
-        else if (ench.type == 5 && ench.level > 0){
-            ench.level = 0;
-            save = true;
-        }
-        else if (ench.type == 6 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 7 && ench.level > 0){
-            ench.level = 0;
-            save = true;
-        }
-        else if (ench.type == 8 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-    }
-    for (const ench of boots_ench.enchants1.toArray())
-    {
-        if ((ench.type == 0 || ench.type == 1 || ench.type == 2 || ench.type == 3 || ench.type == 4) && ench.level > 4){
-            ench.level = 4;
-            save = true;
-        }
-        else if (ench.type == 5 && ench.level > 0){
-            ench.level = 0;
-            save = true;
-        }
-        else if (ench.type == 6 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 7 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 8 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-    }
-    for (const ench of helmet_ench.enchants2.toArray())
-    {
-        if ((ench.type == 9 || ench.type == 10 || ench.type == 11) && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if ((ench.type == 12 || ench.type == 13) && ench.level > 2){
-            ench.level = 2;
-            save = true;
-        }
-        else if (ench.type == 14 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 15 && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if (ench.type == 16 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-        else if ((ench.type == 17 || ench.type == 18) && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-    }
-    for (const ench of chest_ench.enchants2.toArray())
-    {
-        if ((ench.type == 9 || ench.type == 10 || ench.type == 11) && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if ((ench.type == 12 || ench.type == 13) && ench.level > 2){
-            ench.level = 2;
-            save = true;
-        }
-        else if (ench.type == 14 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 15 && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if (ench.type == 16 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-        else if ((ench.type == 17 || ench.type == 18) && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-    }
-    for (const ench of pants_ench.enchants2.toArray())
-    {
-        if ((ench.type == 9 || ench.type == 10 || ench.type == 11) && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if ((ench.type == 12 || ench.type == 13) && ench.level > 2){
-            ench.level = 2;
-            save = true;
-        }
-        else if (ench.type == 14 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 15 && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if (ench.type == 16 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-        else if ((ench.type == 17 || ench.type == 18) && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-    }
-    for (const ench of boots_ench.enchants2.toArray())
-    {
-        if ((ench.type == 9 || ench.type == 10 || ench.type == 11) && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if ((ench.type == 12 || ench.type == 13) && ench.level > 2){
-            ench.level = 2;
-            save = true;
-        }
-        else if (ench.type == 14 && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-        else if (ench.type == 15 && ench.level > 5){
-            ench.level = 5;
-            save = true;
-        }
-        else if (ench.type == 16 && ench.level > 1){
-            ench.level = 1;
-            save = true;
-        }
-        else if ((ench.type == 17 || ench.type == 18) && ench.level > 3){
-            ench.level = 3;
-            save = true;
-        }
-    }
-    for (const ench of helmet_ench.enchants3.toArray())
-    {
-        if(ench.type == 27){
-            ench.level = 0;
-            save = true;
-        }
-    }
-    for (const ench of chest_ench.enchants3.toArray())
-    {
-        if(ench.type == 27){
-            ench.level = 0;
-            save = true;
-        }
-    }
-    for (const ench of pants_ench.enchants3.toArray())
-    {
-        if(ench.type == 27){
-            ench.level = 0;
-            save = true;
-        }
-    }
-    for (const ench of boots_ench.enchants3.toArray())
-    {
-        if(ench.type == 27){
-            ench.level = 0;
-            save = true;
-        }
-    }
-    if (save) {
-        helmet.saveEnchantsToUserData(helmet_ench);
-        chest.saveEnchantsToUserData(chest_ench);
-        pants.saveEnchantsToUserData(pants_ench);
-        boots.saveEnchantsToUserData(boots_ench);
-        console.log("Overenchanted items reverted");
-    }
+    currentmessages.delete(ni);
+    points.delete(ni);
 });
