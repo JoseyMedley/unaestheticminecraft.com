@@ -341,6 +341,7 @@ Actor.fromUniqueIdBin = function(bin, getRemovedActor = true) {
     return serverInstance.minecraft.getLevel().fetchEntity(bin, getRemovedActor);
 };
 
+Actor.prototype.setHurtTime = procHacker.js("?setHurtTime@Actor@@QEAAXH@Z", void_t, {this:Actor}, int32_t);
 Actor.prototype.addEffect = procHacker.js("?addEffect@Actor@@QEAAXAEBVMobEffectInstance@@@Z", void_t, {this:Actor}, MobEffectInstance);
 Actor.prototype.removeEffect = procHacker.js("?removeEffect@Actor@@QEAAXH@Z", void_t, {this:Actor}, int32_t);
 (Actor.prototype as any)._hasEffect = procHacker.js("Actor::hasEffect", bool_t, {this:Actor}, MobEffect);
@@ -448,6 +449,7 @@ Player.prototype.getPermissionLevel = procHacker.js("Player::getPlayerPermission
 Player.prototype.getSkin = procHacker.js("Player::getSkin", SerializedSkin, {this:Player});
 Player.prototype.startCooldown = procHacker.js("Player::startCooldown", void_t, {this:Player}, Item);
 Player.prototype.setGameType = procHacker.js("ServerPlayer::setPlayerGameType", void_t, {this:Player}, int32_t);
+Player.prototype.setPermissions = makefunc.js([0xbc8], void_t, {this:Player}, int32_t);
 Player.prototype.setSize = procHacker.js("Player::setSize", void_t, {this:Player}, float32_t, float32_t);
 Player.prototype.setSleeping = procHacker.js("Player::setSleeping", void_t, {this:Player}, bool_t);
 Player.prototype.isSleeping = procHacker.js("Player::isSleeping", bool_t, {this:Player});
