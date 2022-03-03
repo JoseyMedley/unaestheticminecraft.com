@@ -140,7 +140,7 @@ export class PlayerLevelUpEvent {
 
 export class PlayerJoinEvent {
     constructor(
-        readonly player: Player,
+        readonly player: ServerPlayer,
     ) {
     }
 }
@@ -228,13 +228,12 @@ export class PlayerSleepInBedEvent {
     }
 }
 
-// function onPlayerJump(player: Player):void {
-//     const event = new PlayerJumpEvent(player);
-//     console.log(player.getName());
-//     // events.playerUseItem.fire(event);    Not work yet
-//     return _onPlayerJump(event.player);
-// }
-// const _onPlayerJump = procHacker.hooking('Player::jumpFromGround', void_t, null, Player)(onPlayerJump);
+function onPlayerJump(player: Player):void {
+    const event = new PlayerJumpEvent(player);
+    events.playerJump.fire(event);
+    return _onPlayerJump(event.player);
+}
+const _onPlayerJump = procHacker.hooking("?jumpFromGround@Player@@UEAAXXZ", void_t, null, Player)(onPlayerJump);
 
 function onPlayerUseItem(player: Player, itemStack:ItemStack, useMethod:number, consumeItem:boolean):void {
     const event = new PlayerUseItemEvent(player, useMethod, consumeItem, itemStack);
@@ -341,12 +340,12 @@ function onEntityStopRiding(entity:Actor, exitFromRider:boolean, actorIsBeingDes
 }
 const _onEntityStopRiding = procHacker.hooking('Actor::stopRiding', void_t, null, Actor, bool_t, bool_t, bool_t)(onEntityStopRiding);
 
-function onEntitySneak(scriptServerActorEventListener:VoidPointer, entity:Actor, isSneaking:boolean):boolean {
+function onEntitySneak(actorEventCoordinator:VoidPointer, entity:Actor, isSneaking:boolean): void {
     const event = new EntitySneakEvent(entity, isSneaking);
     events.entitySneak.fire(event);
-    return _onEntitySneak(scriptServerActorEventListener, event.entity, event.isSneaking);
+    return _onEntitySneak(actorEventCoordinator, entity, isSneaking);
 }
-const _onEntitySneak = procHacker.hooking('ScriptServerActorEventListener::onActorSneakChanged', bool_t, null, VoidPointer, Actor, bool_t)(onEntitySneak);
+const _onEntitySneak = procHacker.hooking('ActorEventCoordinator::sendActorSneakChanged', void_t, null, VoidPointer, Actor, bool_t)(onEntitySneak);
 
 function onEntityCreated(actorEventCoordinator:VoidPointer, entity:Actor):void {
     const event = new EntityCreatedEvent(entity);
