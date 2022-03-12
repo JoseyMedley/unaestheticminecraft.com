@@ -7,7 +7,7 @@ import { CxxMap } from "../cxxmap";
 import { CxxVector } from "../cxxvector";
 import { makefunc } from "../makefunc";
 import { AbstractClass, KeysFilter, nativeClass, NativeClass, NativeClassType, nativeField } from "../nativeclass";
-import { bin64_t, bool_t, CommandParameterNativeType, CxxString, float32_t, int16_t, int32_t, NativeType, Type, uint32_t, void_t } from "../nativetype";
+import { bin64_t, bool_t, CommandParameterNativeType, CxxString, float32_t, int16_t, int32_t, NativeType, Type, uint32_t, uint8_t, void_t } from "../nativetype";
 import { Wrapper } from "../pointer";
 import { SharedPtr } from "../sharedpointer";
 import { Singleton } from "../singleton";
@@ -420,10 +420,16 @@ export class CommandOutputParameter extends NativeClass {
 
 @nativeClass(0x30)
 export class CommandOutput extends NativeClass {
+    getSuccessCount():number {
+        abstract();
+    }
     getType():CommandOutputType {
         abstract();
     }
     constructAs(type:CommandOutputType):void {
+        abstract();
+    }
+    empty():boolean {
         abstract();
     }
     protected _successNoMessage():void {
@@ -437,7 +443,7 @@ export class CommandOutput extends NativeClass {
             this._successNoMessage();
         } else {
             const _params = (CxxVector.make(CommandOutputParameter)).construct();
-            if (params.length > 0) {
+            if (params.length) {
                 if (params[0] instanceof CommandOutputParameter) {
                     for (const param of params as CommandOutputParameter[]) {
                         _params.push(param);
@@ -460,7 +466,7 @@ export class CommandOutput extends NativeClass {
     }
     error(message:string, params:CommandOutputParameterType[]|CommandOutputParameter[] = []):void {
         const _params = (CxxVector.make(CommandOutputParameter)).construct();
-        if (params.length > 0) {
+        if (params.length) {
             if (params[0] instanceof CommandOutputParameter) {
                 for (const param of params as CommandOutputParameter[]) {
                     _params.push(param);
@@ -475,6 +481,28 @@ export class CommandOutput extends NativeClass {
             }
         }
         this._error(message, _params);
+        _params.destruct();
+    }
+    protected _addMessage(message:string, params:CxxVector<CommandOutputParameter>):void {
+        abstract();
+    }
+    addMessage(message:string, params:CommandOutputParameterType[]|CommandOutputParameter[] = []):void {
+        const _params = (CxxVector.make(CommandOutputParameter)).construct();
+        if (params.length) {
+            if (params[0] instanceof CommandOutputParameter) {
+                for (const param of params as CommandOutputParameter[]) {
+                    _params.push(param);
+                    param.destruct();
+                }
+            } else {
+                for (const param of params as CommandOutputParameterType[]) {
+                    const _param = CommandOutputParameter.create(param);
+                    _params.push(_param);
+                    _param.destruct();
+                }
+            }
+        }
+        this._addMessage(message, _params);
         _params.destruct();
     }
 }
@@ -510,6 +538,12 @@ export class MinecraftCommands extends NativeClass {
 
 export enum CommandParameterDataType { NORMAL, ENUM, SOFT_ENUM, POSTFIX }
 
+export enum CommandParameterOption {
+    None,
+    EnumAutocompleteExpansion,
+    HasSemanticConstraint,
+}
+
 @nativeClass()
 export class CommandParameterData extends NativeClass {
     @nativeField(typeid_t)
@@ -530,8 +564,11 @@ export class CommandParameterData extends NativeClass {
     flag_offset:int32_t;
     @nativeField(bool_t)
     optional:bool_t;
-    @nativeField(bool_t)
+    /** @deprecated */
+    @nativeField(bool_t, {ghost:true})
     pad73:bool_t;
+    @nativeField(uint8_t)
+    options:CommandParameterOption;
 }
 
 @nativeClass()
@@ -657,12 +694,13 @@ export class Command extends NativeClass {
         keyForIsSet:KEY_ISSET,
         desc?:string|null,
         type:CommandParameterDataType = CommandParameterDataType.NORMAL,
-        name:string = key as string):CommandParameterData {
+        name:string = key as string,
+        options:CommandParameterOption = CommandParameterOption.None):CommandParameterData {
         const cmdclass = this as NativeClassType<any>;
         const paramType = cmdclass.typeOf(key as string);
         const offset = cmdclass.offsetOf(key as string);
         const flag_offset = keyForIsSet !== null ? cmdclass.offsetOf(keyForIsSet as string) : -1;
-        return Command.manual(name, paramType, offset, flag_offset, false, desc, type);
+        return Command.manual(name, paramType, offset, flag_offset, false, desc, type, options);
     }
     static optional<CMD extends Command,
         KEY extends keyof CMD,
@@ -672,12 +710,13 @@ export class Command extends NativeClass {
         keyForIsSet:KEY_ISSET,
         desc?:string|null,
         type:CommandParameterDataType = CommandParameterDataType.NORMAL,
-        name:string = key as string):CommandParameterData {
+        name:string = key as string,
+        options:CommandParameterOption = CommandParameterOption.None):CommandParameterData {
         const cmdclass = this as NativeClassType<any>;
         const paramType = cmdclass.typeOf(key as string);
         const offset = cmdclass.offsetOf(key as string);
         const flag_offset = keyForIsSet !== null ? cmdclass.offsetOf(keyForIsSet as string) : -1;
-        return Command.manual(name, paramType, offset, flag_offset, true, desc, type);
+        return Command.manual(name, paramType, offset, flag_offset, true, desc, type, options);
     }
     static manual(
         name:string,
@@ -686,7 +725,8 @@ export class Command extends NativeClass {
         flag_offset:number = -1,
         optional:boolean = false,
         desc?:string|null,
-        type:CommandParameterDataType = CommandParameterDataType.NORMAL):CommandParameterData {
+        type:CommandParameterDataType = CommandParameterDataType.NORMAL,
+        options:CommandParameterOption = CommandParameterOption.None):CommandParameterData {
         const param = CommandParameterData.construct();
         param.tid.id = type_id(CommandRegistry, paramType).id;
         if (paramType instanceof CommandEnum) {
@@ -706,7 +746,7 @@ export class Command extends NativeClass {
         param.offset = offset;
         param.flag_offset = flag_offset;
         param.optional = optional;
-        param.pad73 = false;
+        param.options = options;
         return param;
     }
 }
@@ -861,11 +901,14 @@ export namespace CommandRegistry {
     }
 }
 
+CommandOutput.prototype.getSuccessCount = procHacker.js('CommandOutput::getSuccessCount', int32_t, {this:CommandOutput});
 CommandOutput.prototype.getType = procHacker.js('CommandOutput::getType', int32_t, {this:CommandOutput});
 CommandOutput.prototype.constructAs = procHacker.js('??0CommandOutput@@QEAA@W4CommandOutputType@@@Z', void_t, {this:CommandOutput}, int32_t);
+CommandOutput.prototype.empty = procHacker.js('CommandOutput::empty', bool_t, {this:CommandOutput});
 (CommandOutput.prototype as any)._successNoMessage = procHacker.js('?success@CommandOutput@@QEAAXXZ', void_t, {this:CommandOutput});
 (CommandOutput.prototype as any)._success = procHacker.js('?success@CommandOutput@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@VCommandOutputParameter@@V?$allocator@VCommandOutputParameter@@@std@@@3@@Z', void_t, {this:CommandOutput}, CxxString, CxxVector.make(CommandOutputParameter));
 (CommandOutput.prototype as any)._error = procHacker.js('?error@CommandOutput@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@VCommandOutputParameter@@V?$allocator@VCommandOutputParameter@@@std@@@3@@Z', void_t, {this:CommandOutput}, CxxString, CxxVector.make(CommandOutputParameter));
+(CommandOutput.prototype as any)._addMessage = procHacker.js('CommandOutput::addMessage', void_t, {this:CommandOutput}, CxxString, CxxVector.make(CommandOutputParameter));
 
 MinecraftCommands.prototype.handleOutput = procHacker.js('MinecraftCommands::handleOutput', void_t, {this:MinecraftCommands}, CommandOrigin, CommandOutput);
 // MinecraftCommands.prototype.executeCommand is defined at bdsx/command.ts

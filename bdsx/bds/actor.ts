@@ -8,10 +8,10 @@ import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
 import type { BlockSource } from "./block";
 import type { Vec2, Vec3 } from "./blockpos";
 import type { CommandPermissionLevel, MCRESULT } from "./command";
-import { Dimension } from "./dimension";
+import type { Dimension } from "./dimension";
 import { MobEffect, MobEffectIds, MobEffectInstance } from "./effects";
 import { HashedString } from "./hashedstring";
-import type { ArmorSlot, ItemStack } from "./inventory";
+import type { ArmorSlot, ItemStack, SimpleContainer } from "./inventory";
 import type { Level } from "./level";
 import { CompoundTag, NBT } from "./nbt";
 import type { NetworkIdentifier } from "./networkidentifier";
@@ -204,7 +204,7 @@ export class ActorDefinitionIdentifier extends NativeClass {
     static constructWith(type:string|ActorType):ActorDefinitionIdentifier {
         abstract();
     }
-    /** @deprecated */
+    /**@deprecated use {@link constructWith()} instead*/
     static create(type:string|ActorType):ActorDefinitionIdentifier {
         return ActorDefinitionIdentifier.constructWith(type as any);
     }
@@ -400,7 +400,7 @@ export class EntityContextBase extends AbstractClass {
     isValid():boolean {
         abstract();
     }
-    /**@deprecated use `isValid` instead*/
+    /**@deprecated use {@link isValid()} instead*/
     isVaild(): boolean {
         return this.isValid();
     }
@@ -412,7 +412,7 @@ export class EntityContextBase extends AbstractClass {
 export class Actor extends AbstractClass {
     vftable:VoidPointer;
     ctxbase:EntityContextBase;
-    /** @deprecated Use `this.getIdentifier()` instead */
+    /** @deprecated use {@link getIdentifier()} instead */
     get identifier():EntityId {
         return this.getIdentifier();
     }
@@ -430,7 +430,7 @@ export class Actor extends AbstractClass {
     /**
      * Get the Actor instance of an entity with its EntityContext
      */
-    static tryGetFromEntity(entity:EntityContext):Actor {
+    static tryGetFromEntity(entity:EntityContext):Actor|null {
         abstract();
     }
 
@@ -715,7 +715,6 @@ export class Actor extends AbstractClass {
     hasEffect(id: MobEffectIds):boolean {
         const effect = MobEffect.create(id);
         const retval = this._hasEffect(effect);
-        effect.destruct();
         return retval;
     }
 
@@ -728,8 +727,10 @@ export class Actor extends AbstractClass {
     getEffect(id: MobEffectIds):MobEffectInstance | null {
         const effect = MobEffect.create(id);
         const retval = this._getEffect(effect);
-        effect.destruct();
         return retval;
+    }
+    removeAllEffects(): void {
+        abstract();
     }
     /**
      * Adds a tag to the entity.
@@ -859,6 +860,14 @@ export class Actor extends AbstractClass {
     isInvisible(): boolean {
         abstract();
     }
+    /**
+     * Makes `this` rides on the ride
+     * @param ride ride, vehicle
+     * @returns Returns whether riding was successful
+     */
+    startRiding(ride: Actor): boolean {
+        abstract();
+    }
     protected _isRiding(): boolean {
         abstract();
     }
@@ -874,6 +883,38 @@ export class Actor extends AbstractClass {
         if (entity) return this._isRidingOn(entity);
         return this._isRiding();
     }
+    protected _isPassenger(ride:ActorUniqueID): boolean {
+        abstract();
+    }
+    isPassenger(ride: ActorUniqueID): boolean;
+    isPassenger(ride: Actor): boolean;
+    isPassenger(ride: ActorUniqueID | Actor): boolean {
+        if (ride instanceof Actor) {
+            return this._isPassenger(ride.getUniqueIdBin());
+        }
+        return this.isPassenger(ride);
+    }
+
+    setVelocity(dest: Vec3): void {
+        abstract();
+    }
+
+    isInWater(): boolean {
+        abstract();
+    }
+
+    getArmorContainer(): SimpleContainer {
+        abstract();
+    }
+
+    setOnFire(seconds:number):void {
+        abstract();
+    }
+
+    setOnFireNoEffects(seconds:number):void {
+        abstract();
+    }
+
     static fromUniqueIdBin(bin:bin64_t, getRemovedActor:boolean = true):Actor|null {
         abstract();
     }
@@ -901,6 +942,9 @@ export class Actor extends AbstractClass {
     runCommand(command:string, mute:boolean = true, permissionLevel?:CommandPermissionLevel): MCRESULT{
         abstract();
     }
+    isMoving(): boolean {
+        abstract();
+    }
 }
 
 export class Mob extends Actor {
@@ -910,6 +954,22 @@ export class Mob extends Actor {
     knockback(source: Actor | null, damage: int32_t, xd: float32_t, zd: float32_t, power: float32_t, height: float32_t, heightCap: float32_t): void {
         abstract();
     }
+    getSpeed():number {
+        abstract();
+    }
+    isSprinting():boolean {
+        abstract();
+    }
+    sendArmorSlot(slot:ArmorSlot):void {
+        abstract();
+    }
+    setSprinting(shouldSprint:boolean):void {
+        abstract();
+    }
+    kill():void {
+        abstract();
+    }
+
     protected _sendInventory(shouldSelectSlot: boolean): void {
         abstract();
     }

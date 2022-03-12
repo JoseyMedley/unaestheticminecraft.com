@@ -69,6 +69,12 @@ export class BlockLegacy extends NativeClass {
     getBlockEntityType(): BlockActorType {
         abstract();
     }
+    getBlockItemId():number {
+        abstract();
+    }
+    getStateFromLegacyData(data:number):Block {
+        abstract();
+    }
     use(subject: Player, blockPos: BlockPos, face: number): bool_t {
         abstract();
     }
@@ -84,22 +90,29 @@ export class Block extends NativeClass {
     blockLegacy:BlockLegacy;
 
     /**
-     * @param blockName Formats like 'minecraft:wool' and 'wool' are both accepted
+     * @deprecated
      */
     static constructWith(blockName:BlockId, data?: number):Block|null;
+    /**
+     * @deprecated
+     */
     static constructWith(blockName:string, data?: number):Block|null;
     static constructWith(blockName:BlockId|string, data:number = 0):Block|null {
-        abstract();
+        return this.create(blockName, data);
     }
-
-    static create(blockName:BlockId, data?: number):Block|null;
-    static create(blockName:string, data?: number):Block|null;
 
     /**
      * @param blockName Formats like 'minecraft:wool' and 'wool' are both accepted
+     * @remark DO NOT DESTRUCT
      */
+    static create(blockName:BlockId, data?: number):Block|null;
+
+    /**
+     * @remark DO NOT DESTRUCT
+     */
+    static create(blockName:string, data?: number):Block|null;
     static create(blockName:string, data:number = 0):Block|null {
-        return this.constructWith(blockName, data);
+        abstract();
     }
     protected _getName():HashedString {
         abstract();
@@ -114,6 +127,9 @@ export class Block extends NativeClass {
         abstract();
     }
     getBlockEntityType(): BlockActorType {
+        abstract();
+    }
+    hasBlockEntity():boolean {
         abstract();
     }
     use(subject: Player, blockPos: BlockPos, face: number): bool_t {
@@ -177,6 +193,9 @@ export class BlockSource extends NativeClass {
         abstract();
     }
     getDimensionId():DimensionId {
+        abstract();
+    }
+    removeBlockEntity(blockPos:BlockPos):void {
         abstract();
     }
 }

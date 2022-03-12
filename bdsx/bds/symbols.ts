@@ -1,6 +1,6 @@
 import { pdb } from "../core";
 import { UNDNAME_NAME_ONLY } from "../dbghelp";
-import { undecoratedSymbols, decoratedSymbols } from "./symbollist";
+import { decoratedSymbols, undecoratedSymbols } from "./symbollist";
 
 export const proc = pdb.getList(
     pdb.coreCachePath,

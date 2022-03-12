@@ -213,6 +213,13 @@ export class Level extends NativeClass {
     getDefaultSpawn():BlockPos {
         abstract();
     }
+
+    explode(region: BlockSource, source: Actor | null, pos: Vec3, explosionRadius: number, fire: boolean, breaksBlocks: boolean, maxResistance: number, allowUnderwater: boolean): void {
+        abstract();
+    }
+    getPlayerByXuid(xuid:string): Player | null {
+        abstract();
+    }
 }
 
 export class ServerLevel extends Level {

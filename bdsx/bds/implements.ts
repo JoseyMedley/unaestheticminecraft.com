@@ -33,7 +33,7 @@ import { EnchantUtils, ItemEnchants } from "./enchants";
 import { GameMode } from "./gamemode";
 import { GameRule, GameRuleId, GameRules } from "./gamerules";
 import { HashedString } from "./hashedstring";
-import { ComponentItem, Container, Inventory, InventoryAction, InventorySource, InventoryTransaction, InventoryTransactionItemGroup, Item, ItemDescriptor, ItemStack, ItemStackBase, NetworkItemStackDescriptor, PlayerInventory, PlayerUIContainer, PlayerUISlot } from "./inventory";
+import { ComponentItem, Container, Inventory, InventoryAction, InventorySource, InventoryTransaction, InventoryTransactionItemGroup, Item, ItemDescriptor, ItemStack, ItemStackBase, NetworkItemStackDescriptor, PlayerInventory, PlayerUIContainer, PlayerUISlot, SimpleContainer } from "./inventory";
 import { ActorFactory, AdventureSettings, BlockPalette, Level, LevelData, ServerLevel, Spawner, TagRegistry } from "./level";
 import { ByteArrayTag, ByteTag, CompoundTag, CompoundTagVariant, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, NBT, ShortTag, StringTag, Tag, TagMemoryChunk, TagPointer } from "./nbt";
 import { networkHandler, NetworkHandler, NetworkIdentifier, ServerNetworkHandler } from "./networkidentifier";
@@ -59,6 +59,11 @@ namespace CommandUtils {
     export const getFeetPos = procHacker.js("CommandUtils::getFeetPos", Vec3, {structureReturn:true}, Actor);
 }
 
+namespace OnFireSystem {
+    export const setOnFire = procHacker.js("OnFireSystem::setOnFire", void_t, null, Actor, int32_t);
+    export const setOnFireNoEffects = procHacker.js("OnFireSystem::setOnFireNoEffects", void_t, null, Actor, int32_t);
+}
+
 // level.ts
 Level.prototype.createDimension = procHacker.js("Level::createDimension", Dimension, {this:Level}, int32_t);
 Level.prototype.destroyBlock = procHacker.js("Level::destroyBlock", bool_t, {this:Level}, BlockSource, BlockPos, bool_t);
@@ -78,6 +83,7 @@ Level.prototype.getTagRegistry = procHacker.js("Level::getTagRegistry", TagRegis
 Level.prototype.hasCommandsEnabled = procHacker.js("Level::hasCommandsEnabled", bool_t, {this:Level});
 Level.prototype.setCommandsEnabled = procHacker.js("ServerLevel::setCommandsEnabled", void_t, {this:ServerLevel}, bool_t);
 Level.prototype.setShouldSendSleepMessage = procHacker.js("ServerLevel::setShouldSendSleepMessage", void_t, {this:ServerLevel}, bool_t);
+Level.prototype.getPlayerByXuid = procHacker.js("Level::getPlayerByXuid", Player, {this:Level}, CxxString);
 const GameRules$createAllGameRulesPacket = procHacker.js("GameRules::createAllGameRulesPacket", Wrapper.make(GameRulesChangedPacket.ref()), {this:GameRules}, Wrapper.make(GameRulesChangedPacket.ref()));
 Level.prototype.syncGameRules = function() {
     const wrapper = Wrapper.make(GameRulesChangedPacket.ref()).construct();
@@ -115,7 +121,7 @@ Level.prototype.getEntities = function() {
     const out:Actor[] = [];
     for (const refTraits of (this as any)._getEntities()) {
         const entity = Actor.tryGetFromEntity(refTraits.context._getStackRef());
-        if (!(entity instanceof Actor)) continue;
+        if (entity === null) continue;
         out.push(entity);
     }
     return out;
@@ -123,16 +129,13 @@ Level.prototype.getEntities = function() {
 
 Level.prototype.getRuntimeEntity = procHacker.js("Level::getRuntimeEntity", Actor, {this:Level}, ActorRuntimeID, bool_t);
 Level.prototype.getRuntimePlayer = procHacker.js("Level::getRuntimePlayer", Player, {this:Level}, ActorRuntimeID);
-
 Level.prototype.getTime = procHacker.js("Level::getTime", int64_as_float_t, {this:Level});
 Level.prototype.getCurrentTick = procHacker.js("Level::getCurrentTick", int64_as_float_t.ref(), {this:Level});// You can run the server for 1.4202551784875594e+22 years till it exceeds the max safe integer
 Level.prototype.getRandomPlayer = procHacker.js("Level::getRandomPlayer", Player, {this:Level});
-
 Level.prototype.updateWeather = procHacker.js("Level::updateWeather", void_t, {this:Level}, float32_t, int32_t, float32_t, int32_t);
-
 Level.prototype.setDefaultSpawn = procHacker.js('Level::setDefaultSpawn', void_t, {this:Level}, BlockPos);
-
 Level.prototype.getDefaultSpawn = procHacker.js('Level::getDefaultSpawn', BlockPos, {this:Level});
+Level.prototype.explode = procHacker.js('?explode@Level@@UEAAXAEAVBlockSource@@PEAVActor@@AEBVVec3@@M_N3M3@Z', void_t, {this:Level}, BlockSource, VoidPointer, Vec3, float32_t, bool_t, bool_t, float32_t, bool_t);
 
 Level.abstract({
     vftable: VoidPointer,
@@ -256,9 +259,12 @@ const Actor$hasType = Actor.prototype.hasType = procHacker.js("Actor::hasType", 
 
 Actor.prototype.kill = makefunc.js([0x7b0], void_t, {this:Actor});
 Actor.prototype.isSneaking = procHacker.js("Actor::isSneaking", bool_t, {this:Actor}, void_t);
+Actor.prototype.isMoving = procHacker.js("Actor::isMoving", bool_t, {this:Actor}, void_t);
 Actor.prototype.setSneaking = procHacker.js("Actor::setSneaking", void_t, {this:Actor}, bool_t);
 Actor.prototype.getHealth = procHacker.js("Actor::getHealth", int32_t, {this:Actor});
 Actor.prototype.getMaxHealth = procHacker.js("Actor::getMaxHealth", int32_t, {this:Actor});
+Actor.prototype.startRiding = makefunc.js([0x1a8], bool_t, {this:Actor}, Actor);
+
 const Actor$save = procHacker.js("Actor::save", bool_t, {this:Actor}, CompoundTag);
 Actor.prototype.save = function(tag?:CompoundTag):any {
     if (tag != null) {
@@ -342,6 +348,10 @@ Actor.prototype.isAlive = makefunc.js([0x328], bool_t, {this:Actor});
 Actor.prototype.isInvisible = procHacker.js("Actor::isInvisible", bool_t, {this:Actor});
 (Actor.prototype as any)._isRiding = procHacker.js("?isRiding@Actor@@QEBA_NXZ", bool_t, {this:Actor});
 (Actor.prototype as any)._isRidingOn = procHacker.js("?isRiding@Actor@@QEBA_NPEAV1@@Z", bool_t, {this:Actor}, Actor);
+(Actor.prototype as any)._isPassenger = procHacker.js("?isPassenger@Actor@@QEBA_NAEBUActorUniqueID@@@Z", bool_t, {this:Actor}, ActorUniqueID.ref());
+Actor.prototype.setVelocity = procHacker.js("Actor::setVelocity", void_t, {this:Actor}, Vec3);
+Actor.prototype.isInWater = procHacker.js("Actor::isInWater", bool_t, {this:Actor});
+Actor.prototype.getArmorContainer = procHacker.js("Actor::getArmorContainer", SimpleContainer, {this:Actor});
 
 Actor.fromUniqueIdBin = function(bin, getRemovedActor = true) {
     return serverInstance.minecraft.getLevel().fetchEntity(bin, getRemovedActor);
@@ -352,8 +362,21 @@ Actor.prototype.addEffect = procHacker.js("?addEffect@Actor@@QEAAXAEBVMobEffectI
 Actor.prototype.removeEffect = procHacker.js("?removeEffect@Actor@@QEAAXH@Z", void_t, {this:Actor}, int32_t);
 (Actor.prototype as any)._hasEffect = procHacker.js("Actor::hasEffect", bool_t, {this:Actor}, MobEffect);
 (Actor.prototype as any)._getEffect = procHacker.js("Actor::getEffect", MobEffectInstance, {this:Actor}, MobEffect);
+Actor.prototype.removeAllEffects = procHacker.js("Actor::removeAllEffects", void_t, {this:Actor});
+Actor.prototype.setOnFire = function(seconds:number) {
+    OnFireSystem.setOnFire(this, seconds);
+};
+Actor.prototype.setOnFireNoEffects = function(seconds:number) {
+    OnFireSystem.setOnFireNoEffects(this, seconds);
+};
 
 Mob.prototype.knockback = makefunc.js([0x898], void_t, {this:Mob}, Actor, int32_t, float32_t, float32_t, float32_t, float32_t, float32_t);
+Mob.prototype.getSpeed = procHacker.js("Mob::getSpeed", float32_t, {this:Mob});
+Mob.prototype.isSprinting = procHacker.js("Mob::isSprinting", bool_t, {this:Mob});
+Mob.prototype.sendArmorSlot = procHacker.js("Mob::sendArmorSlot", void_t, {this:Mob}, uint32_t);
+(Mob.prototype as any)._sendInventory = procHacker.js("Mob::sendInventory", void_t, {this:Mob}, bool_t);
+Mob.prototype.setSprinting = procHacker.js("Mob::setSprinting", void_t, {this:Mob}, bool_t);
+Mob.prototype.kill = procHacker.js("Mob::kill", void_t, {this:Mob});
 (Mob.prototype as any)._sendInventory = makefunc.js([0xa40], void_t, {this:Mob}, bool_t);
 
 OwnerStorageEntity.prototype._getStackRef = procHacker.js('OwnerStorageEntity::_getStackRef', EntityContext, {this:OwnerStorageEntity});
@@ -498,6 +521,7 @@ Player.prototype.getDestroySpeed = procHacker.js('Player::getDestroySpeed', floa
 Player.prototype.canDestroy = procHacker.js('Player::canDestroy', bool_t, {this:Player}, Block.ref());
 Player.prototype.addExperience = procHacker.js('Player::addExperience', void_t, {this:Player}, int32_t);
 Player.prototype.addExperienceLevels = procHacker.js('Player::addLevels', void_t, {this:Player}, int32_t);
+Player.prototype.resetExperienceLevels = procHacker.js('Player::resetPlayerLevel', void_t, {this:Player});
 Player.prototype.getXpNeededForNextLevel = procHacker.js('Player::getXpNeededForNextLevel', int32_t, {this:Player});
 Player.prototype.setCursorSelectedItem = procHacker.js("Player::setCursorSelectedItem", void_t, {this:Player}, ItemStack);
 Player.prototype.getCursorSelectedItem = function (): ItemStack {
@@ -507,10 +531,15 @@ Player.prototype.getPlayerUIItem = procHacker.js("Player::getPlayerUIItem", Item
 Player.prototype.setPlayerUIItem = procHacker.js("Player::setPlayerUIItem", void_t, {this:Player}, int32_t, ItemStack.ref());
 Player.prototype.getPlatform = procHacker.js("Player::getPlatform", int32_t, {this:Player});
 Player.prototype.getXuid = procHacker.js("Player::getXuid", CxxString, {this:Player, structureReturn:true});
+Player.prototype.forceAllowEating = procHacker.js("Player::forceAllowEating", bool_t, {this:Player});
+Player.prototype.getSpeed = procHacker.js("Player::getSpeed", float32_t, {this:Player});
+Player.prototype.hasOpenContainer = procHacker.js("Player::hasOpenContainer", bool_t, {this:Player});
+Player.prototype.isHungry = procHacker.js("Player::isHungry", bool_t, {this:Player});
 
 ServerPlayer.abstract({});
 ServerPlayer.prototype.nextContainerCounter = procHacker.js("ServerPlayer::_nextContainerCounter", int8_t, {this: ServerPlayer});
 ServerPlayer.prototype.openInventory = procHacker.js("ServerPlayer::openInventory", void_t, {this: ServerPlayer});
+ServerPlayer.prototype.resendAllChunks = procHacker.js("ServerPlayer::resendAllChunks", void_t, {this: ServerPlayer});
 ServerPlayer.prototype.sendNetworkPacket = procHacker.js("ServerPlayer::sendNetworkPacket", void_t, {this: ServerPlayer}, VoidPointer);
 ServerPlayer.prototype.getNetworkIdentifier = function () {
     // part of ServerPlayer::sendNetworkPacket
@@ -662,6 +691,7 @@ Item.prototype.allowOffhand = procHacker.js("Item::allowOffhand", bool_t, {this:
 Item.prototype.isDamageable = procHacker.js("Item::isDamageable", bool_t, {this:Item});
 Item.prototype.isFood = procHacker.js("Item::isFood", bool_t, {this:Item});
 Item.prototype.setAllowOffhand = procHacker.js("Item::setAllowOffhand", void_t, {this:Item}, bool_t);
+Item.prototype.getSerializedName = procHacker.js("Item::getSerializedName", CxxString, {this:Item, structureReturn: true});
 Item.prototype.getCommandNames = procHacker.js("Item::getCommandNames", CxxVector.make(CxxStringWith8Bytes), {this:Item, structureReturn: true});
 Item.prototype.getCommandNames2 = procHacker.js("Item::getCommandNames", CxxVector.make(CommandName), {this:Item, structureReturn: true});
 Item.prototype.getCreativeCategory = procHacker.js("Item::getCreativeCategory", int32_t, {this:Item});
@@ -689,6 +719,7 @@ ItemStackBase.prototype.getUserData = procHacker.js("ItemStackBase::getUserData"
 ItemStackBase.prototype.hasCustomName = procHacker.js("ItemStackBase::hasCustomHoverName", bool_t, {this:ItemStackBase});
 ItemStackBase.prototype.isBlock = procHacker.js("ItemStackBase::isBlock", bool_t, {this:ItemStackBase});
 ItemStackBase.prototype.isNull = procHacker.js("ItemStackBase::isNull", bool_t, {this:ItemStackBase});
+ItemStackBase.prototype.setNull = procHacker.js("ItemStackBase::setNull", void_t, {this:ItemStackBase});
 ItemStackBase.prototype.getEnchantValue = procHacker.js("ItemStackBase::getEnchantValue", int32_t, {this:ItemStackBase});
 ItemStackBase.prototype.isEnchanted = procHacker.js("ItemStackBase::isEnchanted", bool_t, {this:ItemStackBase});
 ItemStackBase.prototype.setDamageValue = procHacker.js("ItemStackBase::setDamageValue", void_t, {this:ItemStackBase}, int32_t);
@@ -758,9 +789,16 @@ ItemStack.fromTag = function(tag) {
     }
 };
 
+Container.prototype.addItem = procHacker.js("Container::addItem", void_t, {this:Container}, ItemStack);
+Container.prototype.addItemToFirstEmptySlot = procHacker.js("Container::addItemToFirstEmptySlot", bool_t, {this:Container}, ItemStack);
 Container.prototype.getSlots = procHacker.js("Container::getSlots", CxxVector.make(ItemStack.ref()), {this:Container, structureReturn:true});
+Container.prototype.getItem = makefunc.js([0x28], ItemStack, {this:Container}, uint8_t);
 Container.prototype.getItemCount = procHacker.js("Container::getItemCount", int32_t, {this:Container}, ItemStack);
 Container.prototype.getContainerType = procHacker.js("Container::getContainerType", uint8_t, {this:Container});
+Container.prototype.hasRoomForItem = procHacker.js("Container::hasRoomForItem", bool_t, {this:Container}, ItemStack);
+Container.prototype.isEmpty = procHacker.js("Container::isEmpty", bool_t, {this:Container});
+Container.prototype.removeAllItems = procHacker.js("Container::removeAllItems", void_t, {this:Container});
+Container.prototype.removeItem = procHacker.js("Container::removeItem", void_t, {this:Container}, int32_t, int32_t);
 Container.prototype.setCustomName = procHacker.js("Container::setCustomName", void_t, {this:Container}, CxxString);
 
 Inventory.prototype.dropSlot = procHacker.js("Inventory::dropSlot", void_t, {this:Inventory}, int32_t, bool_t, bool_t, bool_t);
@@ -795,24 +833,24 @@ BlockLegacy.prototype.getCommandNames2 = procHacker.js("BlockLegacy::getCommandN
 BlockLegacy.prototype.getCreativeCategory = procHacker.js("BlockLegacy::getCreativeCategory", int32_t, {this:BlockLegacy});
 BlockLegacy.prototype.setDestroyTime = procHacker.js("BlockLegacy::setDestroyTime", void_t, {this:BlockLegacy}, float32_t);
 BlockLegacy.prototype.getBlockEntityType = procHacker.js("BlockLegacy::getBlockEntityType", int32_t, {this:BlockLegacy});
+BlockLegacy.prototype.getBlockItemId = procHacker.js("BlockLegacy::getBlockItemId", int16_t, {this:BlockLegacy});
+BlockLegacy.prototype.getStateFromLegacyData = procHacker.js("BlockLegacy::getStateFromLegacyData", Block.ref(), {this:BlockLegacy}, uint16_t);
 
 BlockLegacy.prototype.getRenderBlock = procHacker.js("BlockLegacy::getRenderBlock", Block, {this:BlockLegacy});
 BlockLegacy.prototype.use = makefunc.js([0x5c0], bool_t, {this:BlockLegacy}, Player, BlockPos, uint8_t);
 
 (Block.prototype as any)._getName = procHacker.js("Block::getName", HashedString, {this:Block});
-Block.constructWith = function(blockName:string, data:number = 0):Block|null {
+Block.create = function(blockName:string, data:number = 0):Block|null {
     const itemStack = ItemStack.constructWith(blockName, 1, data);
-    if (itemStack.isBlock()) {
-        const block = itemStack.block;
-        itemStack.destruct();
-        return block;
-    }
+    const block = itemStack.block;
+    const isBlock = itemStack.isBlock();
     itemStack.destruct();
-    return null;
+    return isBlock ? block : null;
 };
 Block.prototype.getDescriptionId = procHacker.js("Block::getDescriptionId", CxxString, {this:Block, structureReturn:true});
 Block.prototype.getRuntimeId = procHacker.js('Block::getRuntimeId', int32_t.ref(), {this:Block});
 Block.prototype.getBlockEntityType = procHacker.js('Block::getBlockEntityType', int32_t, {this:Block});
+Block.prototype.hasBlockEntity = procHacker.js('Block::hasBlockEntity', bool_t, {this:Block});
 Block.prototype.use = procHacker.js("Block::use", bool_t, {this:Block}, Player, BlockPos, uint8_t);
 
 (BlockSource.prototype as any)._setBlock = procHacker.js("?setBlock@BlockSource@@QEAA_NHHHAEBVBlock@@H@Z", bool_t, {this:BlockSource}, int32_t, int32_t, int32_t, Block, int32_t);
@@ -829,6 +867,7 @@ BlockSource.prototype.setBlock = function(blockPos:BlockPos, block:Block):boolea
     return retval;
 };
 BlockSource.prototype.getBlockEntity = procHacker.js("?getBlockEntity@BlockSource@@QEAAPEAVBlockActor@@AEBVBlockPos@@@Z", BlockActor, {this:BlockSource}, BlockPos);
+BlockSource.prototype.removeBlockEntity = procHacker.js("BlockSource::removeBlockEntity", void_t, {this:BlockSource}, BlockPos);
 BlockSource.prototype.getDimension = procHacker.js('BlockSource::getDimension', Dimension, {this:BlockSource});
 BlockSource.prototype.getDimensionId = procHacker.js('BlockSource::getDimensionId', int32_t, {this:BlockSource});
 
@@ -900,6 +939,7 @@ Abilities.prototype.setCommandPermissionLevel = procHacker.js("Abilities::setCom
 Abilities.prototype.setPlayerPermissionLevel = procHacker.js("Abilities::setPlayerPermissions", void_t, {this:Abilities}, int32_t);
 Abilities.prototype.getAbility = procHacker.js("Abilities::getAbility", Ability, {this:Abilities}, uint8_t);
 (Abilities.prototype as any)._setAbility = procHacker.js("Abilities::setAbility", void_t, {this:Abilities}, uint8_t, bool_t);
+Abilities.prototype.isFlying = procHacker.js("Abilities::isFlying", bool_t, {this:Abilities});
 
 const Abilities$getAbilityName = procHacker.js("Abilities::getAbilityName", StaticPointer, null, uint16_t);
 Abilities.getAbilityName = function(abilityIndex:uint16_t):string {
@@ -959,6 +999,7 @@ GameRule.prototype.getFloat = procHacker.js("GameRule::getFloat", float32_t, {th
 Scoreboard.prototype.clearDisplayObjective = procHacker.js("ServerScoreboard::clearDisplayObjective", Objective, {this:Scoreboard}, CxxString);
 Scoreboard.prototype.setDisplayObjective = procHacker.js("ServerScoreboard::setDisplayObjective", DisplayObjective, {this:Scoreboard}, CxxString, Objective, uint8_t);
 Scoreboard.prototype.addObjective = procHacker.js("Scoreboard::addObjective", Objective, {this:Scoreboard}, CxxString, CxxString, ObjectiveCriteria);
+Scoreboard.prototype.createScoreboardId = procHacker.js("?createScoreboardId@ServerScoreboard@@UEAAAEBUScoreboardId@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z", ScoreboardId, {this:Scoreboard}, CxxString);
 Scoreboard.prototype.getCriteria = procHacker.js("Scoreboard::getCriteria", ObjectiveCriteria, {this:Scoreboard}, CxxString);
 Scoreboard.prototype.getDisplayObjective = procHacker.js("Scoreboard::getDisplayObjective", DisplayObjective, {this:Scoreboard}, CxxString);
 Scoreboard.prototype.getObjective = procHacker.js("Scoreboard::getObjective", Objective, {this:Scoreboard}, CxxString);
@@ -982,11 +1023,17 @@ IdentityDefinition.prototype.getPlayerId = procHacker.js("IdentityDefinition::ge
 IdentityDefinition.prototype.getFakePlayerName = procHacker.js("IdentityDefinition::getFakePlayerName", CxxString, {this:IdentityDefinition});
 IdentityDefinition.prototype.getIdentityType = procHacker.js("IdentityDefinition::getIdentityType", uint8_t, {this:IdentityDefinition});
 
+ScoreboardId.prototype.isValid = procHacker.js("ScoreboardId::isValid", bool_t, {this:ScoreboardId});
+
 (ScoreboardIdentityRef.prototype as any)._modifyScoreInObjective = procHacker.js("ScoreboardIdentityRef::modifyScoreInObjective", bool_t, {this:ScoreboardIdentityRef}, StaticPointer, Objective, int32_t, uint8_t);
 
 // effects.ts
 MobEffect.create = procHacker.js("MobEffect::getById", MobEffect, null, int32_t);
+MobEffect.prototype.getId = procHacker.js("MobEffect::getId", uint32_t, {this:MobEffect});
+
 (MobEffectInstance.prototype as any)._create = procHacker.js("??0MobEffectInstance@@QEAA@IHH_N00@Z", void_t, {this:MobEffectInstance}, uint32_t, int32_t, int32_t, bool_t, bool_t, bool_t);
+(MobEffectInstance.prototype as any)._getComponentName = procHacker.js("MobEffectInstance::getComponentName", HashedString, {this:MobEffectInstance});
+MobEffectInstance.prototype.getAmplifier = procHacker.js("MobEffectInstance::getAmplifier", int32_t, {this:MobEffectInstance});
 MobEffectInstance.prototype.allocateAndSave = procHacker.js("MobEffectInstance::save", CompoundTag.ref(), {this:MobEffectInstance, structureReturn: true});
 const MobEffectInstance$load = procHacker.js("MobEffectInstance::load", void_t, null, MobEffectInstance, CompoundTag);
 MobEffectInstance.prototype.load = function(tag) {

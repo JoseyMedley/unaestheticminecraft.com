@@ -5,14 +5,33 @@ import { VoidPointer } from "../core";
 import { makefunc } from "../makefunc";
 import { mce } from "../mce";
 import { AbstractClass, nativeClass, nativeField } from "../nativeclass";
-import { CxxString, int32_t, NativeType, void_t } from "../nativetype";
+import { CxxString, int32_t, NativeType, uint8_t, void_t } from "../nativetype";
 import { Actor } from "./actor";
 import type { CommandPositionFloat } from "./command";
 import { JsonValue } from "./connreq";
 import { Dimension } from "./dimension";
 import { Level, ServerLevel } from "./level";
+import { CompoundTag } from "./nbt";
 import { procHacker } from "./proc";
 import { proc } from "./symbols";
+
+export enum CommandOriginType {
+    Player,
+    CommandBlock,
+    MinecartCommandBlock,
+    DevConsole,
+    Test,
+    AutomationPlayer,
+    ClientAutomation,
+    Server,
+    Entity,
+    Virtual,
+    GameArgument,
+    EntityServer,
+    Precompiled,
+    GameMasterEntityServer,
+    Scripting,
+}
 
 @nativeClass(null)
 export class CommandOrigin extends AbstractClass {
@@ -54,6 +73,9 @@ export class CommandOrigin extends AbstractClass {
     getLevel(): Level {
         abstract();
     }
+    getOriginType():CommandOriginType {
+        abstract();
+    }
 
     /**
      * Returns the dimension of the recieved command
@@ -78,6 +100,23 @@ export class CommandOrigin extends AbstractClass {
         handleCommandOutputCallback.call(this, v);
         v.destruct();
         capi.free(v);
+    }
+
+    /**
+     * @param tag this function stores nbt values to this parameter
+     */
+    save(tag:CompoundTag):boolean;
+     /**
+      * it returns JS converted NBT
+      */
+    save():Record<string, any>;
+    save(tag?:CompoundTag):any{
+        abstract();
+    }
+    allocateAndSave():CompoundTag{
+        const tag = CompoundTag.allocate();
+        this.save(tag);
+        return tag;
     }
 }
 
@@ -167,8 +206,24 @@ CommandOrigin.prototype.getDimension = makefunc.js([0x38], Dimension, {this: Com
 // Actor* CommandOrigin::getEntity();
 CommandOrigin.prototype.getEntity = makefunc.js([0x40], Actor, {this: CommandOrigin});
 
+// enum CommandOriginType CommandOrigin::getOriginType();
+CommandOrigin.prototype.getOriginType = makefunc.js([0xb8], uint8_t, {this: CommandOrigin});
+
 // void handleCommandOutputCallback(Json::Value &&);
 const handleCommandOutputCallback = makefunc.js([0xc0], void_t, {this: CommandOrigin}, JsonValue);
+
+// struct CompoundTag CommandOrigin::serialize(void)
+const serializeCommandOrigin = makefunc.js([0xe8], CompoundTag, {this:CommandOrigin}, CompoundTag);
+CommandOrigin.prototype.save = function(tag?:CompoundTag):any {
+    if (tag != null) {
+        return serializeCommandOrigin.call(this, tag);
+    }
+    tag = CompoundTag.allocate();
+    if (!serializeCommandOrigin.call(this, tag)) return null;
+    const res = tag.value();
+    tag.dispose();
+    return res;
+};
 
 const deleteServerCommandOrigin = makefunc.js([0, 0], void_t, {this:ServerCommandOrigin}, int32_t);
 ServerCommandOrigin.prototype[NativeType.dtor] = function() {

@@ -142,6 +142,9 @@ export class Item extends NativeClass {
     setAllowOffhand(value:boolean):void {
         abstract();
     }
+    getSerializedName():CxxString {
+        abstract();
+    }
 }
 
 /**
@@ -210,6 +213,9 @@ export class ItemStackBase extends NativeClass {
         abstract();
     }
     isNull():boolean {
+        abstract();
+    }
+    setNull():void {
         abstract();
     }
     getAmount():number {
@@ -409,13 +415,34 @@ export class ItemStack extends ItemStackBase {
 }
 
 export class Container extends NativeClass {
+    addItem(item:ItemStack):void {
+        abstract();
+    }
+    addItemToFirstEmptySlot(item:ItemStack):boolean {
+        abstract();
+    }
     getSlots():CxxVector<ItemStack> {
+        abstract();
+    }
+    getItem(slot:number):ItemStack {
         abstract();
     }
     getItemCount(compare:ItemStack):int32_t {
         abstract();
     }
     getContainerType():ContainerType {
+        abstract();
+    }
+    hasRoomForItem(item:ItemStack):boolean {
+        abstract();
+    }
+    isEmpty():boolean {
+        abstract();
+    }
+    removeAllItems():void {
+        abstract();
+    }
+    removeItem(slot:number, count:number):void {
         abstract();
     }
     setCustomName(name:string):void {
