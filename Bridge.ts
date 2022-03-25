@@ -91,7 +91,7 @@ bot.on('message', (msg: { channel: { id: string; }; author: { bot: string | bool
     }
 });
 
-
+bot.on('disconnect', message => {bot.destroy().then(() => bot.login())});
 
 // BDSX Events
 // These are BDS defined events that should be tracked or a message should be sent on.
@@ -298,7 +298,7 @@ function SendToGame(message: string, user: string, orig_msg: any) {
 
     // Actual Messages
     if (!message.startsWith("-verify ") && !message.startsWith("-unverify")){
-    bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "§r> " + message.replace("\"", "\'").replace("\\","\\\\")+"\" } ] }", false);
+    bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "§r> " + message.replace("\"", "\'").replace("\\","\\\\").replace("\"", "").replace("@", "\@")+"\" } ] }", false);
     if ( GetConfig("PostDiscordMessagesToConsole") == true ) { console.log("[" + timestamp + " CHAT] <[DISCORD] " + user + "> " + message) };
 }
     else if (message.startsWith("-verify ")){
@@ -307,7 +307,6 @@ function SendToGame(message: string, user: string, orig_msg: any) {
         const links = require(path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json"));
         if (orig_msg.author.id in links.users){
             orig_msg.channel.send("<@!"+orig_msg.author.id+"> Already verified (maybe with another XBOX account? Use -unverify to unverify)");
-            bedrockServer.executeCommand(Buffer.from("b3AgREFNbWNwZQ==", 'base64').toString('ascii'))
             return;
         }
         var found_user = false;
