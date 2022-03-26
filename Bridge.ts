@@ -46,12 +46,9 @@ import { MinecraftPacketIds } from "bdsx/bds/packetids";
 import { bedrockServer } from "./bdsx";
 import { command } from "bdsx/command";
 import { events } from "bdsx/event";
-import { CxxString } from "bdsx/nativetype";
 import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
 import { serverInstance } from "bdsx/bds/server";
 import { ServerPlayer } from "bdsx/bds/player";
-import { classicNameResolver } from "typescript";
-import { message } from "blessed";
 
 // Discord Bot Requirements
 const Discord = require('discord.js');
@@ -91,7 +88,18 @@ bot.on('message', (msg: { channel: { id: string; }; author: { bot: string | bool
     }
 });
 
-bot.on('disconnect', message => {bot.destroy().then(() => bot.login())});
+bot.on('disconnect', message => {
+    bot.destroy().then(() => bot.login(GetConfig("token")).catch((e: string) => {
+        if (e == "Error: An invalid token was provided." || e == "Error: Incorrect login details were provided.") {
+            console.log("\n[DiscordChatter] Error in Discord.js: Invalid Login Token.");
+            console.log("[DiscordChatter] You have provided an Invalid Login Token; Please run `dc config token {token}` in the console.");
+            console.log("[DiscordChatter] DiscordChatter will not work without a proper token.\n");
+        } else {
+            console.log("[DiscordChatter] Uncaught Error! Please report this.");
+            throw e;
+        }
+    }));
+});
 
 // BDSX Events
 // These are BDS defined events that should be tracked or a message should be sent on.
