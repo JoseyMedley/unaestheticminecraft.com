@@ -39,9 +39,9 @@ import { ActorFactory, AdventureSettings, BlockPalette, Level, LevelData, Server
 import { ByteArrayTag, ByteTag, CompoundTag, CompoundTagVariant, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, NBT, ShortTag, StringTag, Tag, TagMemoryChunk, TagPointer } from "./nbt";
 import { networkHandler, NetworkHandler, NetworkIdentifier, ServerNetworkHandler } from "./networkidentifier";
 import { ExtendedStreamReadResult, Packet } from "./packet";
-import { AdventureSettingsPacket, AttributeData, BlockActorDataPacket, GameRulesChangedPacket, PlayerListPacket, SetTimePacket, UpdateAttributesPacket, UpdateBlockPacket } from "./packets";
+import { AdventureSettingsPacket, AttributeData, BlockActorDataPacket, GameRulesChangedPacket, PlayerListEntry, PlayerListPacket, SetTimePacket, UpdateAttributesPacket, UpdateBlockPacket } from "./packets";
 import { BatchedNetworkPeer } from "./peer";
-import { Player, PlayerListEntry, ServerPlayer } from "./player";
+import { Player, ServerPlayer } from "./player";
 import { proc, proc2, procHacker } from "./proc";
 import { RakNet } from "./raknet";
 import { RakNetInstance } from "./raknetinstance";
@@ -464,6 +464,9 @@ Player.abstract({
 const PlayerListPacket$emplace = procHacker.js("PlayerListPacket::emplace", void_t, null, PlayerListPacket, PlayerListEntry);
 Player.prototype.setName = function(name:string):void {
     (this as any)._setName(name);
+    this.updatePlayerList();
+};
+Player.prototype.updatePlayerList = function() {
     const entry = PlayerListEntry.constructWith(this);
     const pk = PlayerListPacket.allocate();
     PlayerListPacket$emplace(pk, entry);
@@ -594,7 +597,7 @@ NetworkHandler.abstract({
 // NetworkHandler::Connection* NetworkHandler::getConnectionFromId(const NetworkIdentifier& ni)
 NetworkHandler.prototype.getConnectionFromId = procHacker.js(`NetworkHandler::_getConnectionFromId`, NetworkHandler.Connection, {this:NetworkHandler});
 
-// void NetworkHandler::send(const NetworkIdentifier& ni, Packet* packet, unsigned char u)
+// void NetworkHandler::send(const NetworkIdentifier& ni, Packet* packet, unsigned char senderSubClientId)
 NetworkHandler.prototype.send = procHacker.js('NetworkHandler::send', void_t, {this:NetworkHandler}, NetworkIdentifier, Packet, int32_t);
 
 // void NetworkHandler::_sendInternal(const NetworkIdentifier& ni, Packet* packet, std::string& data)
@@ -613,8 +616,8 @@ const Packet$dtor = makefunc.js([0, 0], void_t, {this:Packet}, int32_t);
 Packet.prototype[NativeType.dtor] = function() {
     Packet$dtor.call(this, 1);
 };
-Packet.prototype.sendTo = function(target:NetworkIdentifier, unknownarg:number=0):void {
-    networkHandler.send(target, this, unknownarg);
+Packet.prototype.sendTo = function(target:NetworkIdentifier, senderSubClientId:number=0):void {
+    networkHandler.send(target, this, senderSubClientId);
 };
 Packet.prototype.destruct = makefunc.js([0x0], void_t, {this:Packet});
 Packet.prototype.getId = makefunc.js([0x8], int32_t, {this:Packet});
@@ -902,13 +905,13 @@ BlockSource.prototype.setBlock = function(blockPos:BlockPos, block:Block):boolea
 BlockSource.prototype.getBlockEntity = procHacker.js("?getBlockEntity@BlockSource@@QEAAPEAVBlockActor@@AEBVBlockPos@@@Z", BlockActor, {this:BlockSource}, BlockPos);
 BlockSource.prototype.removeBlockEntity = procHacker.js("BlockSource::removeBlockEntity", void_t, {this:BlockSource}, BlockPos);
 BlockSource.prototype.getDimension = procHacker.js('BlockSource::getDimension', Dimension, {this:BlockSource});
-BlockSource.prototype.getDimensionId = procHacker.js('BlockSource::getDimensionId', int32_t, {this:BlockSource});
+BlockSource.prototype.getDimensionId = procHacker.js('BlockSource::getDimensionId', int32_t, {this:BlockSource, structureReturn:true});
 
-const BlockActor$vftable = proc2["??_7ChestBlockActor@@6BRandomizableBlockActorContainerBase@@@"];
+const ChestBlockActor$vftable = proc2["??_7ChestBlockActor@@6BRandomizableBlockActorContainerBase@@@"];
 BlockActor.setResolver((ptr) => {
     if (ptr === null) return null;
     const vftable = ptr.getPointer();
-    if (vftable.equals(BlockActor$vftable)) {
+    if (vftable.equals(ChestBlockActor$vftable)) {
         return ptr.as(ChestBlockActor);
     }
     return ptr.as(BlockActor);
