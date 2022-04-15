@@ -4,10 +4,10 @@ import { abstract } from "../common";
 import { VoidPointer } from "../core";
 import { makefunc } from "../makefunc";
 import { mce } from "../mce";
-import { AbstractClass, nativeClass, nativeField } from "../nativeclass";
+import { AbstractClass, nativeClass, nativeField, vectorDeletingDestructor } from "../nativeclass";
 import { CxxString, int32_t, NativeType, uint8_t, void_t } from "../nativetype";
 import { Actor } from "./actor";
-import type { CommandPositionFloat } from "./command";
+import type { CommandPermissionLevel, CommandPositionFloat } from "./command";
 import { JsonValue } from "./connreq";
 import { Dimension } from "./dimension";
 import { Level, ServerLevel } from "./level";
@@ -42,6 +42,10 @@ export class CommandOrigin extends AbstractClass {
     @nativeField(ServerLevel.ref())
     level:ServerLevel;
 
+    dispose():void {
+        abstract();
+    }
+
     constructWith(vftable:VoidPointer, level:ServerLevel):void {
         this.vftable = vftable;
         this.level = level;
@@ -49,13 +53,13 @@ export class CommandOrigin extends AbstractClass {
     }
 
     isServerCommandOrigin():boolean {
-        return this.vftable.equals(ServerCommandOrigin_vftable);
+        return this.vftable.equalsptr(ServerCommandOrigin_vftable);
     }
     /**
      * @deprecated bedrock scripting API will be removed.
      */
     isScriptCommandOrigin():boolean {
-        return this.vftable.equals(ScriptCommandOrigin_vftable);
+        return this.vftable.equalsptr(ScriptCommandOrigin_vftable);
     }
 
     getRequestId():CxxString {
@@ -167,14 +171,14 @@ const ScriptCommandOrigin_vftable = proc["ScriptCommandOrigin::`vftable'"];
 
 @nativeClass(0x48)
 export class ServerCommandOrigin extends CommandOrigin {
-    static constructWith(name:string, level:ServerLevel, permissionLevel:number, dimension:Dimension|null):ServerCommandOrigin {
+    static constructWith(requestId:string, level:ServerLevel, permissionLevel:CommandPermissionLevel, dimension:Dimension|null):ServerCommandOrigin {
         const ptr = new ServerCommandOrigin(true);
-        ServerCommandOrigin$ServerCommandOrigin(ptr, name, level, permissionLevel, dimension);
+        ServerCommandOrigin$ServerCommandOrigin(ptr, requestId, level, permissionLevel, dimension);
         return ptr;
     }
-    static allocateWith(name:string, level:ServerLevel, permissionLevel:number, dimension:Dimension|null):ServerCommandOrigin {
+    static allocateWith(requestId:string, level:ServerLevel, permissionLevel:CommandPermissionLevel, dimension:Dimension|null):ServerCommandOrigin {
         const ptr = capi.malloc(ServerCommandOrigin[NativeType.size]).as(ServerCommandOrigin);
-        ServerCommandOrigin$ServerCommandOrigin(ptr, name, level, permissionLevel, dimension);
+        ServerCommandOrigin$ServerCommandOrigin(ptr, requestId, level, permissionLevel, dimension);
         return ptr;
     }
 }
@@ -183,8 +187,7 @@ const ServerCommandOrigin$ServerCommandOrigin = procHacker.js('ServerCommandOrig
     CxxString, ServerLevel, int32_t, Dimension);
 const ServerCommandOrigin_vftable = proc["ServerCommandOrigin::`vftable'"];
 
-// void CommandOrigin::destruct();
-CommandOrigin.prototype.destruct = makefunc.js([0x00], void_t, {this: CommandOrigin});
+CommandOrigin.prototype[NativeType.dtor] = vectorDeletingDestructor;
 
 // std::string& CommandOrigin::getRequestId();
 CommandOrigin.prototype.getRequestId = makefunc.js([0x08], CxxString, {this: CommandOrigin});
@@ -228,7 +231,4 @@ CommandOrigin.prototype.save = function(tag?:CompoundTag):any {
     return res;
 };
 
-const deleteServerCommandOrigin = makefunc.js([0, 0], void_t, {this:ServerCommandOrigin}, int32_t);
-ServerCommandOrigin.prototype[NativeType.dtor] = function() {
-    deleteServerCommandOrigin.call(this, 1);
-};
+ServerCommandOrigin.prototype[NativeType.dtor] = vectorDeletingDestructor;

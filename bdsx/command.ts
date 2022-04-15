@@ -3,8 +3,8 @@ import * as colors from 'colors';
 import { Command, CommandCheatFlag, CommandContext, CommandEnum, CommandIndexEnum, CommandMappedValue, CommandOutput, CommandParameterData, CommandParameterDataType, CommandParameterOption, CommandPermissionLevel, CommandRawEnum, CommandRegistry, CommandSoftEnum, CommandStringEnum, CommandUsageFlag, CommandVisibilityFlag, MCRESULT, MinecraftCommands } from './bds/command';
 import { CommandOrigin } from './bds/commandorigin';
 import { procHacker } from './bds/proc';
-import { serverInstance } from './bds/server';
 import { CommandParameterType } from './commandparam';
+import { emptyFunc } from './common';
 import { decay } from './decay';
 import { events } from './event';
 import { bedrockServer } from './launcher';
@@ -53,6 +53,7 @@ export class CustomCommand extends Command {
         // empty
     }
 }
+CustomCommand.prototype[NativeType.dtor] = emptyFunc; // remove the inherited destructor
 
 interface CommandFieldOptions {
     optional?:boolean;
@@ -228,7 +229,7 @@ function softEnum(name:string, ...values:(string|string[])[]):CommandSoftEnum {
 
 export const command ={
     find(name:string):CustomCommandFactoryWithSignature {
-        const registry = serverInstance.minecraft.getCommands().getRegistry();
+        const registry = bedrockServer.commandRegistry;
         const cmd = registry.findCommand(name);
         if (cmd === null) throw Error(`${name}: command not found`);
         return new CustomCommandFactoryWithSignature(registry, name, cmd);
@@ -238,7 +239,7 @@ export const command ={
         perm:CommandPermissionLevel = CommandPermissionLevel.Normal,
         flags1:CommandCheatFlag|CommandVisibilityFlag = CommandCheatFlag.NotCheat,
         flags2:CommandUsageFlag|CommandVisibilityFlag = CommandUsageFlag._Unknown):CustomCommandFactory {
-        const registry = serverInstance.minecraft.getCommands().getRegistry();
+        const registry = bedrockServer.commandRegistry;
         const cmd = registry.findCommand(name);
         if (cmd !== null) throw Error(`${name}: command already registered`);
         registry.registerCommand(name, description, perm, flags1, flags2);

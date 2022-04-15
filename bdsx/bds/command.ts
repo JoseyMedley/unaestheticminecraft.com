@@ -7,8 +7,9 @@ import { AllocatedPointer, StaticPointer, VoidPointer } from "../core";
 import { CxxMap } from "../cxxmap";
 import { CxxPair } from "../cxxpair";
 import { CxxVector, CxxVectorToArray } from "../cxxvector";
+import { bedrockServer } from "../launcher";
 import { makefunc } from "../makefunc";
-import { AbstractClass, KeysFilter, nativeClass, NativeClass, NativeClassType, nativeField } from "../nativeclass";
+import { AbstractClass, KeysFilter, nativeClass, NativeClass, NativeClassType, nativeField, NativeStruct, vectorDeletingDestructor } from "../nativeclass";
 import { bin64_t, bool_t, CommandParameterNativeType, CxxString, float32_t, int16_t, int32_t, int64_as_float_t, NativeType, Type, uint32_t, uint64_as_float_t, uint8_t, void_t } from "../nativetype";
 import { Wrapper } from "../pointer";
 import { CxxSharedPtr } from "../sharedpointer";
@@ -20,13 +21,12 @@ import { Block } from "./block";
 import { BlockPos, Vec3 } from "./blockpos";
 import { CommandSymbols } from "./cmdsymbolloader";
 import { CommandOrigin } from "./commandorigin";
+import { JsonValue } from "./connreq";
 import { MobEffect } from "./effects";
-import { HashedString } from "./hashedstring";
 import { ItemStack } from "./inventory";
 import { AvailableCommandsPacket } from "./packets";
 import { Player } from "./player";
 import { procHacker } from "./proc";
-import { serverInstance } from "./server";
 import { proc } from "./symbols";
 import { HasTypeId, typeid_t, type_id } from "./typeid";
 
@@ -90,7 +90,7 @@ export enum SoftEnumUpdateType {
 }
 
 @nativeClass()
-export class MCRESULT extends NativeClass {
+export class MCRESULT extends NativeStruct {
     @nativeField(uint32_t)
     result:uint32_t;
 
@@ -218,7 +218,7 @@ export class CommandFilePath extends NativeClass {
 }
 
 @nativeClass()
-class CommandIntegerRange extends NativeClass { // Not exporting yet, not supported
+class CommandIntegerRange extends NativeStruct { // Not exporting yet, not supported
     static readonly [CommandParameterType.symbol]:true;
 
     @nativeField(int32_t)
@@ -230,7 +230,7 @@ class CommandIntegerRange extends NativeClass { // Not exporting yet, not suppor
 }
 
 @nativeClass()
-export class CommandItem extends NativeClass {
+export class CommandItem extends NativeStruct {
     static readonly [CommandParameterType.symbol]:true;
 
     @nativeField(int32_t)
@@ -271,7 +271,7 @@ CommandMessage.abstract({
 CommandMessage.prototype.getMessage = procHacker.js('CommandMessage::getMessage', CxxString, {this:CommandMessage, structureReturn:true}, CommandOrigin);
 
 @nativeClass()
-export class CommandPosition extends NativeClass {
+export class CommandPosition extends NativeStruct {
     static readonly [CommandParameterType.symbol]:true;
     @nativeField(float32_t)
     x:float32_t;
@@ -342,7 +342,7 @@ export class CommandRawText extends NativeClass {
 }
 
 @nativeClass()
-export class CommandWildcardInt extends NativeClass {
+export class CommandWildcardInt extends NativeStruct {
     static readonly [CommandParameterType.symbol]:true;
 
     @nativeField(bool_t)
@@ -387,21 +387,42 @@ export class CommandContext extends NativeClass {
     command:CxxString;
     @nativeField(CommandOrigin.ref())
     origin:CommandOrigin;
+    @nativeField(int32_t, 0x28)
+    version:int32_t;
 
     /**
      * @param commandOrigin it's destructed by the destruction of CommandContext
      */
-    static constructSharedPtr(command:string, commandOrigin:CommandOrigin):CxxSharedPtr<CommandContext> {
+    constructWith(command:string, commandOrigin:CommandOrigin, version:number = CommandVersion.CurrentVersion):void {
+        CommandContext$CommandContext(this, command, CommandOriginWrapper.create(commandOrigin), version);
+    }
+
+    /**
+     * @param commandOrigin it's destructed by the destruction of CommandContext
+     */
+    static constructWith(command:string, commandOrigin:CommandOrigin, version?:number):CommandContext {
+        const ctx = new CommandContext(true);
+        ctx.constructWith(command, commandOrigin, version);
+        return ctx;
+    }
+
+    /**
+     * @param commandOrigin it's destructed by the destruction of CommandContext. it should be allocated by malloc
+     */
+    static constructSharedPtr(command:string, commandOrigin:CommandOrigin, version?:number):CxxSharedPtr<CommandContext> {
         const sharedptr = new CommandContextSharedPtr(true);
         sharedptr.create(commandContextRefCounter$Vftable);
-        CommandContext$CommandContext(sharedptr.p, command, CommandOriginWrapper.create(commandOrigin), commandVersion);
+        sharedptr.p!.constructWith(command, commandOrigin, version);
         return sharedptr;
     }
 }
 
+export namespace CommandVersion {
+    export const CurrentVersion = proc['CommandVersion::CurrentVersion'].getInt32();
+}
+
 const CommandOriginWrapper = Wrapper.make(CommandOrigin.ref());
 const commandContextRefCounter$Vftable = proc["std::_Ref_count_obj2<CommandContext>::`vftable'"];
-const commandVersion = proc['CommandVersion::CurrentVersion'].getInt32();
 const CommandContext$CommandContext = procHacker.js('CommandContext::CommandContext', void_t, null,
     CommandContext, CxxString, CommandOriginWrapper, int32_t);
 const CommandContextSharedPtr = CxxSharedPtr.make(CommandContext);
@@ -410,74 +431,178 @@ export enum CommandOutputType {
     None = 0,
     LastOutput = 1,
     Silent = 2,
-    Type3 = 3, // user / server console / command block
+    /** @deprecated */
+    Type3 = 3,
+    AllOutput = 3, // user / server console / command block
+    /** @deprecated */
     ScriptEngine = 4,
+    DataSet = 4,
 }
 
 type CommandOutputParameterType = string|boolean|number|Actor|BlockPos|Vec3|Actor[];
 
-@nativeClass(0x28)
+@nativeClass()
 export class CommandOutputParameter extends NativeClass {
     @nativeField(CxxString)
     string:CxxString;
     @nativeField(int32_t)
     count:int32_t;
+
+    /**
+     * @deprecated use constructWith to be sure. it has to be destructed.
+     */
     static create(input:CommandOutputParameterType, count?:number):CommandOutputParameter {
-        const out = CommandOutputParameter.construct();
+        return CommandOutputParameter.constructWith(input, count);
+    }
+
+    constructWith(input:CommandOutputParameterType, count?:number):void {
+        this.construct();
         switch (typeof input) {
         case 'string':
-            out.string = input;
-            out.count = count ?? 0;
+            this.string = input;
+            this.count = count ?? 0;
             break;
         case 'boolean':
-            out.string = input.toString();
-            out.count = 0;
+            this.string = input.toString();
+            this.count = 0;
             break;
         case 'number':
             if (Number.isInteger(input)) {
-                out.string = input.toString();
+                this.string = input.toString();
             } else {
-                out.string = input.toFixed(2).toString();
+                this.string = input.toFixed(2).toString();
             }
-            out.count = 0;
+            this.count = 0;
             break;
         case 'object':
             if (input instanceof Actor) {
-                out.string = input.getName();
-                out.count = 1;
+                this.string = input.getName();
+                this.count = 1;
             } else if (input instanceof BlockPos || input instanceof Vec3) {
-                out.string = `${input.x}, ${input.y}, ${input.z}`;
-                out.count = count ?? 0;
+                this.string = `${input.x}, ${input.y}, ${input.z}`;
+                this.count = count ?? 0;
             } else if (Array.isArray(input)) {
                 if (input.length > 0) {
                     if (input[0] instanceof Actor) {
-                        out.string = input.map(e => e.getName()).join(', ');
-                        out.count = input.length;
+                        this.string = input.map(e => e.getName()).join(', ');
+                        this.count = input.length;
                     }
                 }
             }
             break;
         default:
-            out.string = '';
-            out.count = -1;
+            this.string = '';
+            this.count = -1;
         }
+    }
+    static constructWith(input:CommandOutputParameterType, count?:number):CommandOutputParameter {
+        const out = CommandOutputParameter.construct();
+        out.constructWith(input, count);
         return out;
     }
 }
 
+const CommandOutputParameterVector = CxxVector.make(CommandOutputParameter);
+
+function paramsToVector(params?:CxxVector<CommandOutputParameter>|CommandOutputParameter[]|CommandOutputParameterType[]):CxxVector<CommandOutputParameter> {
+    if (params != null) {
+        if (params instanceof CxxVector) {
+            return params;
+        } else if (params.length) {
+            const _params = CommandOutputParameterVector.construct();
+            _params.reserve(params.length);
+
+            if (params[0] instanceof CommandOutputParameter) {
+                for (const param of params as CommandOutputParameter[]) {
+                    _params.emplace(param);
+                    param.destruct();
+                }
+            } else {
+                for (const param of params as CommandOutputParameterType[]) {
+                    _params.prepare().constructWith(param);
+                }
+            }
+            return _params;
+        }
+    }
+    return CommandOutputParameterVector.construct();
+}
+
 @nativeClass(0x30)
 export class CommandOutput extends NativeClass {
+    @nativeField(int32_t)
+    type:CommandOutputType;
+
     getSuccessCount():number {
         abstract();
     }
     getType():CommandOutputType {
         abstract();
     }
+    /**
+     * @deprecated use constructWith, Uniform naming conventions
+     */
     constructAs(type:CommandOutputType):void {
+        this.constructWith(type);
+    }
+    constructWith(type:CommandOutputType):void {
         abstract();
     }
     empty():boolean {
         abstract();
+    }
+    /**
+     * CommandOutput::set<std::string>()
+     */
+    set_string(key:string, value:string):void {
+        abstract();
+    }
+    /**
+     * CommandOutput::set<int>()
+     */
+    set_int(key:string, value:number):void {
+        abstract();
+    }
+    /**
+     * CommandOutput::set<int>()
+     */
+    set_bool(key:string, value:boolean):void {
+        abstract();
+    }
+    /**
+     * CommandOutput::set<float>()
+     */
+    set_float(key:string, value:number):void {
+        abstract();
+    }
+    /**
+     * CommandOutput::set<BlockPos>()
+     */
+    set_BlockPos(key:string, value:BlockPos):void {
+        abstract();
+    }
+    /**
+     * CommandOutput::set<Vec3>()
+     */
+    set_Vec3(key:string, value:Vec3):void {
+        abstract();
+    }
+    set(key:string, value:string|number|boolean|BlockPos|Vec3):void {
+        switch (typeof value) {
+        case 'string': return this.set_string(key, value);
+        case 'boolean': return this.set_bool(key, value);
+        case 'number':
+            if (value === (value|0)) return this.set_int(key, value);
+            else return this.set_float(key, value);
+        default:
+            if (value instanceof Vec3) {
+                return this.set_Vec3(key, value);
+            } else if (value instanceof BlockPos) {
+                return this.set_BlockPos(key ,value);
+            } else {
+                throw Error('Unexpected');
+            }
+        }
     }
     protected _successNoMessage():void {
         abstract();
@@ -485,25 +610,15 @@ export class CommandOutput extends NativeClass {
     protected _success(message:string, params:CxxVector<CommandOutputParameter>):void {
         abstract();
     }
-    success(message?:string, params:CommandOutputParameterType[]|CommandOutputParameter[] = []):void {
+
+    /**
+     * @param params CAUTION! it will destruct the parameters.
+     */
+    success(message?:string, params?:CommandOutputParameterType[]|CommandOutputParameter[]|CxxVector<CommandOutputParameter>):void {
         if (message === undefined) {
             this._successNoMessage();
         } else {
-            const _params = (CxxVector.make(CommandOutputParameter)).construct();
-            if (params.length) {
-                if (params[0] instanceof CommandOutputParameter) {
-                    for (const param of params as CommandOutputParameter[]) {
-                        _params.push(param);
-                        param.destruct();
-                    }
-                } else {
-                    for (const param of params as CommandOutputParameterType[]) {
-                        const _param = CommandOutputParameter.create(param);
-                        _params.push(_param);
-                        _param.destruct();
-                    }
-                }
-            }
+            const _params = paramsToVector(params);
             this._success(message, _params);
             _params.destruct();
         }
@@ -511,46 +626,31 @@ export class CommandOutput extends NativeClass {
     protected _error(message:string, params:CxxVector<CommandOutputParameter>):void {
         abstract();
     }
-    error(message:string, params:CommandOutputParameterType[]|CommandOutputParameter[] = []):void {
-        const _params = (CxxVector.make(CommandOutputParameter)).construct();
-        if (params.length) {
-            if (params[0] instanceof CommandOutputParameter) {
-                for (const param of params as CommandOutputParameter[]) {
-                    _params.push(param);
-                    param.destruct();
-                }
-            } else {
-                for (const param of params as CommandOutputParameterType[]) {
-                    const _param = CommandOutputParameter.create(param);
-                    _params.push(_param);
-                    _param.destruct();
-                }
-            }
-        }
+
+    /**
+     * @param params CAUTION! it will destruct the parameters.
+     */
+    error(message:string, params?:CommandOutputParameterType[]|CommandOutputParameter[]|CxxVector<CommandOutputParameter>):void {
+        const _params = paramsToVector(params);
         this._error(message, _params);
         _params.destruct();
     }
     protected _addMessage(message:string, params:CxxVector<CommandOutputParameter>):void {
         abstract();
     }
+
+    /**
+     * @param params CAUTION! it will destruct the parameters.
+     */
     addMessage(message:string, params:CommandOutputParameterType[]|CommandOutputParameter[] = []):void {
-        const _params = (CxxVector.make(CommandOutputParameter)).construct();
-        if (params.length) {
-            if (params[0] instanceof CommandOutputParameter) {
-                for (const param of params as CommandOutputParameter[]) {
-                    _params.push(param);
-                    param.destruct();
-                }
-            } else {
-                for (const param of params as CommandOutputParameterType[]) {
-                    const _param = CommandOutputParameter.create(param);
-                    _params.push(_param);
-                    _param.destruct();
-                }
-            }
-        }
+        const _params = paramsToVector(params);
         this._addMessage(message, _params);
         _params.destruct();
+    }
+    static constructWith(type:CommandOutputType):CommandOutput {
+        const output = new CommandOutput(true);
+        output.constructWith(type);
+        return output;
     }
 }
 
@@ -558,12 +658,22 @@ export class CommandOutput extends NativeClass {
 export class CommandOutputSender extends NativeClass {
     @nativeField(VoidPointer)
     vftable:VoidPointer;
+
+    _toJson(commandOutput:CommandOutput):JsonValue {
+        abstract();
+    }
+    sendToAdmins(origin:CommandOrigin, output:CommandOutput, permission:CommandPermissionLevel):void {
+        abstract();
+    }
 }
 
 @nativeClass(null)
 export class MinecraftCommands extends NativeClass {
     @nativeField(VoidPointer)
     vftable:VoidPointer;
+    /**
+     * @deprecated use bedrockServer.commandOutputSender
+     */
     @nativeField(CommandOutputSender.ref())
     sender:CommandOutputSender;
     handleOutput(origin:CommandOrigin, output:CommandOutput):void {
@@ -575,10 +685,17 @@ export class MinecraftCommands extends NativeClass {
     executeCommand(ctx:CxxSharedPtr<CommandContext>, suppressOutput:boolean):MCRESULT {
         abstract();
     }
+    /**
+     * @deprecated use bedrockServer.commandRegistry
+     */
     getRegistry():CommandRegistry {
         abstract();
     }
-    runCommand(command:HashedString, origin:CommandOrigin, ccVersion:number): void{
+    // not implemented
+    // runCommand(command:HashedString, origin:CommandOrigin, ccVersion:number): void{
+    //     abstract();
+    // }
+    static getOutputType(origin:CommandOrigin):CommandOutputType {
         abstract();
     }
 }
@@ -629,7 +746,7 @@ export class CommandParameterData extends NativeClass {
 }
 
 @nativeClass()
-export class CommandVFTable extends NativeClass {
+export class CommandVFTable extends NativeStruct {
     @nativeField(VoidPointer)
     destructor:VoidPointer;
     @nativeField(VoidPointer)
@@ -726,7 +843,6 @@ export abstract class CommandEnum<V> extends CommandEnumBase<EnumResult, V> {
 export class CommandRawEnum extends CommandEnum<string|number> {
     private static readonly all = new Map<string, CommandRawEnum>();
 
-    private readonly registry = serverInstance.minecraft.getCommands().getRegistry();
     private enumIndex = -1;
     private idRegistered = false;
     private parserType:ParserType = ParserType.Int;
@@ -742,11 +858,12 @@ export class CommandRawEnum extends CommandEnum<string|number> {
 
     private _update():boolean {
         if (this.enumIndex !== -1) return true; // already hooked
-        const enumIdex = this.registry.enumLookup.get(this.name);
+        const registry = bedrockServer.commandRegistry;
+        const enumIdex = registry.enumLookup.get(this.name);
         if (enumIdex === null) return false;
         this.enumIndex = enumIdex;
 
-        const enumobj = this.registry.enums.get(this.enumIndex)!;
+        const enumobj = registry.enums.get(this.enumIndex)!;
         this.parserType = getParserType(enumobj.parser);
 
         // hook the enum parser, provides extra information.
@@ -762,7 +879,8 @@ export class CommandRawEnum extends CommandEnum<string|number> {
     }
 
     addValues(values:string[]):void {
-        const id = this.registry.addEnumValues(this.name, values);
+        const registry = bedrockServer.commandRegistry;
+        const id = registry.addEnumValues(this.name, values);
         if (!this.idRegistered) {
             this.idRegistered = true;
             type_id.register(CommandRegistry, this, id);
@@ -775,16 +893,18 @@ export class CommandRawEnum extends CommandEnum<string|number> {
     getValues():string[] {
         const values = new Array<string>();
         if (this.enumIndex === -1) return values;
-        const enumobj = this.registry.enums.get(this.enumIndex)!;
+        const registry = bedrockServer.commandRegistry;
+        const enumobj = registry.enums.get(this.enumIndex)!;
         for (const {first: valueIndex} of enumobj.values) {
-            values.push(this.registry.enumValues.get(valueIndex));
+            values.push(registry.enumValues.get(valueIndex));
         }
         return values;
     }
 
     getValueCount():number {
         if (this.enumIndex === -1) return 0;
-        const enumobj = this.registry.enums.get(this.enumIndex)!;
+        const registry = bedrockServer.commandRegistry;
+        const enumobj = registry.enums.get(this.enumIndex)!;
         return enumobj.values.size();
     }
 
@@ -884,18 +1004,17 @@ export class CommandIndexEnum<T extends number|string> extends CommandMappedEnum
 export class CommandSoftEnum extends CommandEnumBase<CxxString, string> {
     private static readonly all = new Map<string, CommandSoftEnum>();
 
-    private readonly registry = serverInstance.minecraft.getCommands().getRegistry();
     private enumIndex = -1;
 
     private constructor(name:string) {
         super(CxxString, CxxString.symbol, name);
         if (CommandSoftEnum.all.has(name)) throw Error(`the enum parser already exists (name=${name})`);
-        this.enumIndex = this.registry.softEnumLookup.get(this.name) ?? -1;
+        this.enumIndex = bedrockServer.commandRegistry.softEnumLookup.get(this.name) ?? -1;
         // No type id should be registered, it is the type of string
     }
 
     protected updateValues(mode: SoftEnumUpdateType, values:string[]):void {
-        this.registry.updateSoftEnum(mode, this.name, values);
+        bedrockServer.commandRegistry.updateSoftEnum(mode, this.name, values);
     }
 
     getParser(): VoidPointer {
@@ -914,8 +1033,9 @@ export class CommandSoftEnum extends CommandEnumBase<CxxString, string> {
             values = first;
         }
         if (this.enumIndex === -1) {
-            this.registry.addSoftEnum(this.name, values as string[]);
-            this.enumIndex = this.registry.softEnumLookup.get(this.name) ?? -1;
+            const registry = bedrockServer.commandRegistry;
+            registry.addSoftEnum(this.name, values as string[]);
+            this.enumIndex = registry.softEnumLookup.get(this.name) ?? -1;
         } else {
             this.updateValues(SoftEnumUpdateType.Add, values as string[]);
         }
@@ -940,8 +1060,9 @@ export class CommandSoftEnum extends CommandEnumBase<CxxString, string> {
             values = first;
         }
         if (this.enumIndex !== -1) {
-            this.registry.addSoftEnum(this.name, values as string[]);
-            this.enumIndex = this.registry.softEnumLookup.get(this.name) ?? -1;
+            const registry = bedrockServer.commandRegistry;
+            registry.addSoftEnum(this.name, values as string[]);
+            this.enumIndex = registry.softEnumLookup.get(this.name) ?? -1;
         } else {
             this.updateValues(SoftEnumUpdateType.Replace, values as string[]);
         }
@@ -950,13 +1071,13 @@ export class CommandSoftEnum extends CommandEnumBase<CxxString, string> {
     getValues():string[] {
         const values = new Array<string>();
         if (this.enumIndex === -1) return values;
-        const enumobj = this.registry.softEnums.get(this.enumIndex)!;
+        const enumobj = bedrockServer.commandRegistry.softEnums.get(this.enumIndex)!;
         return enumobj.list.toArray();
     }
 
     getValueCount():number {
         if (this.enumIndex === -1) return 0;
-        const enumobj = this.registry.softEnums.get(this.enumIndex)!;
+        const enumobj = bedrockServer.commandRegistry.softEnums.get(this.enumIndex)!;
         return enumobj.list.size();
     }
 
@@ -979,9 +1100,9 @@ enum ParserType {
 }
 
 function getParserType(parser:VoidPointer):ParserType {
-    if (parser.equals(CommandRegistry.getParser(CxxString))) {
+    if (parser.equalsptr(CommandRegistry.getParser(CxxString))) {
         return ParserType.String;
-    } else if (parser.equals(enumParser)) {
+    } else if (parser.equalsptr(enumParser)) {
         return ParserType.Int;
     } else {
         return ParserType.Unknown;
@@ -1038,6 +1159,10 @@ export class CommandRegistry extends HasTypeId {
     }
 
     registerOverloadInternal(signature:CommandRegistry.Signature, overload: CommandRegistry.Overload):void{
+        abstract();
+    }
+
+    getCommandName(command:string):string {
         abstract();
     }
 
@@ -1135,7 +1260,7 @@ export class CommandRegistry extends HasTypeId {
 
 export namespace CommandRegistry {
     @nativeClass()
-    export class Symbol extends NativeClass {
+    export class Symbol extends NativeStruct {
         @nativeField(int32_t)
         value:int32_t;
     }
@@ -1208,6 +1333,30 @@ export namespace CommandRegistry {
         @nativeField(CxxVector.make(CxxString))
         list:CxxVector<CxxString>;
     }
+
+    @nativeClass(0xc0)
+    export class Parser extends AbstractClass {
+        constructWith(registry:CommandRegistry, version:number):void {
+            abstract();
+        }
+        parseCommand(command:string):boolean {
+            abstract();
+        }
+        createCommand(origin:CommandOrigin):Command|null {
+            abstract();
+        }
+        getErrorMessage():string {
+            abstract();
+        }
+        getErrorParams():string[] {
+            abstract();
+        }
+        static constructWith(registry:CommandRegistry, version:number):Parser {
+            const parser = new Parser(true);
+            parser.constructWith(registry, version);
+            return parser;
+        }
+    }
 }
 
 @nativeClass()
@@ -1250,6 +1399,13 @@ export class Command extends NativeClass {
         this.commandSymbol = -1;
         this.permissionLevel = 5;
         // this.flags = 0;
+    }
+    [NativeType.dtor]():void {
+        abstract();
+    }
+
+    run(origin:CommandOrigin, output:CommandOutput):void {
+        abstract();
     }
 
     static mandatory<CMD extends Command,
@@ -1358,16 +1514,28 @@ export const CommandMobEffect = Command.MobEffect;
 
 CommandOutput.prototype.getSuccessCount = procHacker.js('CommandOutput::getSuccessCount', int32_t, {this:CommandOutput});
 CommandOutput.prototype.getType = procHacker.js('CommandOutput::getType', int32_t, {this:CommandOutput});
-CommandOutput.prototype.constructAs = procHacker.js('??0CommandOutput@@QEAA@W4CommandOutputType@@@Z', void_t, {this:CommandOutput}, int32_t);
+CommandOutput.prototype.constructWith = procHacker.js('??0CommandOutput@@QEAA@W4CommandOutputType@@@Z', void_t, {this:CommandOutput}, int32_t);
 CommandOutput.prototype.empty = procHacker.js('CommandOutput::empty', bool_t, {this:CommandOutput});
+CommandOutput.prototype.set_string = procHacker.js('??$set@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@CommandOutput@@QEAAXPEBDV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z', void_t, {this:CommandOutput}, makefunc.Utf8, CxxString);
+CommandOutput.prototype.set_int = procHacker.js('CommandOutput::set<int>', void_t, {this:CommandOutput}, makefunc.Utf8, int32_t);
+CommandOutput.prototype.set_bool = procHacker.js('CommandOutput::set<bool>', void_t, {this:CommandOutput}, makefunc.Utf8, bool_t);
+CommandOutput.prototype.set_float = procHacker.js('CommandOutput::set<float>', void_t, {this:CommandOutput}, makefunc.Utf8, float32_t);
+CommandOutput.prototype.set_BlockPos = procHacker.js('CommandOutput::set<BlockPos>', void_t, {this:CommandOutput}, makefunc.Utf8, BlockPos);
+CommandOutput.prototype.set_Vec3 = procHacker.js('CommandOutput::set<Vec3>', void_t, {this:CommandOutput}, makefunc.Utf8, Vec3);
+
 (CommandOutput.prototype as any)._successNoMessage = procHacker.js('?success@CommandOutput@@QEAAXXZ', void_t, {this:CommandOutput});
-(CommandOutput.prototype as any)._success = procHacker.js('?success@CommandOutput@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@VCommandOutputParameter@@V?$allocator@VCommandOutputParameter@@@std@@@3@@Z', void_t, {this:CommandOutput}, CxxString, CxxVector.make(CommandOutputParameter));
-(CommandOutput.prototype as any)._error = procHacker.js('?error@CommandOutput@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@VCommandOutputParameter@@V?$allocator@VCommandOutputParameter@@@std@@@3@@Z', void_t, {this:CommandOutput}, CxxString, CxxVector.make(CommandOutputParameter));
-(CommandOutput.prototype as any)._addMessage = procHacker.js('CommandOutput::addMessage', void_t, {this:CommandOutput}, CxxString, CxxVector.make(CommandOutputParameter));
+(CommandOutput.prototype as any)._success = procHacker.js('?success@CommandOutput@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@VCommandOutputParameter@@V?$allocator@VCommandOutputParameter@@@std@@@3@@Z', void_t, {this:CommandOutput}, CxxString, CommandOutputParameterVector);
+(CommandOutput.prototype as any)._error = procHacker.js('?error@CommandOutput@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@VCommandOutputParameter@@V?$allocator@VCommandOutputParameter@@@std@@@3@@Z', void_t, {this:CommandOutput}, CxxString, CommandOutputParameterVector);
+(CommandOutput.prototype as any)._addMessage = procHacker.js('CommandOutput::addMessage', void_t, {this:CommandOutput}, CxxString, CommandOutputParameterVector);
+CommandOutput.prototype[NativeType.dtor] = procHacker.js('CommandOutput::~CommandOutput', void_t, {this:CommandOutput});
+
+CommandOutputSender.prototype._toJson = procHacker.js('CommandOutputSender::_toJson', JsonValue, {this:CommandOutputSender, structureReturn:true}, CommandOutput);
+CommandOutputSender.prototype.sendToAdmins = procHacker.js('CommandOutputSender::sendToAdmins', void_t, {this:MinecraftCommands}, CommandOrigin, CommandOutput, int32_t);
 
 MinecraftCommands.prototype.handleOutput = procHacker.js('MinecraftCommands::handleOutput', void_t, {this:MinecraftCommands}, CommandOrigin, CommandOutput);
 // MinecraftCommands.prototype.executeCommand is defined at bdsx/command.ts
 MinecraftCommands.prototype.getRegistry = procHacker.js('MinecraftCommands::getRegistry', CommandRegistry, {this:MinecraftCommands});
+MinecraftCommands.getOutputType = procHacker.js('MinecraftCommands::getOutputType', int32_t, null, CommandOrigin);
 
 CommandRegistry.abstract({
     enumValues: [CxxVector.make(CxxString), 192],
@@ -1382,10 +1550,21 @@ CommandRegistry.abstract({
 CommandRegistry.prototype.registerOverloadInternal = procHacker.js('CommandRegistry::registerOverloadInternal', void_t, {this:CommandRegistry}, CommandRegistry.Signature, CommandRegistry.Overload);
 CommandRegistry.prototype.registerCommand = procHacker.js('CommandRegistry::registerCommand', void_t, {this:CommandRegistry}, CxxString, makefunc.Utf8, int32_t, int32_t, int32_t);
 CommandRegistry.prototype.registerAlias = procHacker.js('CommandRegistry::registerAlias', void_t, {this:CommandRegistry}, CxxString, CxxString);
+CommandRegistry.prototype.getCommandName = procHacker.js('CommandRegistry::getCommandName', CxxString, {structureReturn: true, this:CommandRegistry}, CxxString);
 CommandRegistry.prototype.findCommand = procHacker.js('CommandRegistry::findCommand', CommandRegistry.Signature, {this:CommandRegistry}, CxxString);
 CommandRegistry.prototype.addEnumValues = procHacker.js('?addEnumValues@CommandRegistry@@QEAAHAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@3@@Z', int32_t, {this:CommandRegistry}, CxxString, CxxVectorToArray.make(CxxString));
 CommandRegistry.prototype.addSoftEnum = procHacker.js('CommandRegistry::addSoftEnum', int32_t, {this:CommandRegistry}, CxxString, CxxVectorToArray.make(CxxString));
 (CommandRegistry.prototype as any)._serializeAvailableCommands = procHacker.js('CommandRegistry::serializeAvailableCommands', AvailableCommandsPacket, {this:CommandRegistry}, AvailableCommandsPacket);
+Command.prototype[NativeType.dtor] = vectorDeletingDestructor;
+
+CommandRegistry.Parser.prototype.constructWith = procHacker.js('??0Parser@CommandRegistry@@QEAA@AEBV1@H@Z', void_t, {this:CommandRegistry.Parser}, CommandRegistry, int32_t);
+CommandRegistry.Parser.prototype[NativeType.dtor] = procHacker.js('CommandRegistry::Parser::~Parser', void_t, {this:CommandRegistry.Parser});
+CommandRegistry.Parser.prototype.parseCommand = procHacker.js('CommandRegistry::Parser::parseCommand', bool_t, {this:CommandRegistry.Parser}, CxxString);
+CommandRegistry.Parser.prototype.createCommand = procHacker.js('CommandRegistry::Parser::createCommand', Command.ref(), {this:CommandRegistry.Parser, structureReturn: true}, CommandOrigin);
+CommandRegistry.Parser.prototype.getErrorMessage = procHacker.js('CommandRegistry::Parser::getErrorMessage', CxxString, {this:CommandRegistry.Parser});
+CommandRegistry.Parser.prototype.getErrorParams = procHacker.js('CommandRegistry::Parser::getErrorParams', CxxVectorToArray.make(CxxString), {this:CommandRegistry.Parser, structureReturn: true});
+
+Command.prototype.run = procHacker.js('Command::run', void_t, {this:Command}, CommandOrigin, CommandOutput);
 
 // CommandSoftEnumRegistry is a class with only one field, which is a pointer to CommandRegistry.
 // I can only find one member function so I am not sure if a dedicated class is needed.

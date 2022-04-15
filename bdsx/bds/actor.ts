@@ -2,7 +2,8 @@ import { bin } from "../bin";
 import { CircularDetector } from "../circulardetector";
 import { abstract } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
-import { AbstractClass, nativeClass, NativeClass, nativeField } from "../nativeclass";
+import { events } from "../event";
+import { AbstractClass, nativeClass, NativeClass, nativeField, NativeStruct } from "../nativeclass";
 import { bin64_t, bool_t, CxxString, float32_t, int32_t, int64_as_float_t, uint8_t } from "../nativetype";
 import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
 import type { BlockSource } from "./block";
@@ -215,7 +216,11 @@ export class ActorDamageSource extends NativeClass{
     @nativeField(int32_t, 0x08)
     cause: int32_t;
 
+    /** @deprecated Use {@link create} instead. */
     static constructWith(cause: ActorDamageCause): ActorDamageSource {
+        return this.create(cause);
+    }
+    static create(cause: ActorDamageCause): ActorDamageSource {
         abstract();
     }
 
@@ -382,7 +387,7 @@ export enum ActorLinkType {
 }
 
 @nativeClass()
-export class ActorLink extends NativeClass {
+export class ActorLink extends NativeStruct {
     @nativeField(uint8_t)
     type:ActorLinkType;
     @nativeField(ActorUniqueID, 0x08)
@@ -453,7 +458,16 @@ export class Actor extends AbstractClass {
     static tryGetFromEntity(entity:EntityContext):Actor|null {
         abstract();
     }
-
+    /**
+     * Adds an item to the entity's inventory
+     * @remarks Entity(Mob) inventory will not be updated. Use Mob.sendInventory() to update it.
+     *
+     * @param itemStack - Item to add
+     * @returns {boolean} Whether the item has been added successfully (Full inventory can be a cause of failure)
+     */
+    addItem(itemStack: ItemStack): boolean {
+        abstract();
+    }
     sendPacket(packet:Packet):void {
         if (!this.isPlayer()) throw Error("this is not ServerPlayer");
         this.sendNetworkPacket(packet);
@@ -842,9 +856,8 @@ export class Actor extends AbstractClass {
     hurt(cause: ActorDamageCause, damage: number, knock: boolean, ignite: boolean): boolean;
     hurt(sourceOrCause: ActorDamageSource|ActorDamageCause, damage: number, knock: boolean, ignite: boolean): boolean {
         const isSource = sourceOrCause instanceof ActorDamageSource;
-        const source = isSource ? sourceOrCause : ActorDamageSource.constructWith(sourceOrCause);
+        const source = isSource ? sourceOrCause : ActorDamageSource.create(sourceOrCause);
         const retval = this.hurt_(source, damage, knock, ignite);
-        if(!isSource) source.destruct();
         return retval;
     }
     /**
@@ -982,6 +995,10 @@ export class Actor extends AbstractClass {
     protected hasFamily_(familyType: HashedString): boolean {
         abstract();
     }
+    /**
+     * Returns whether the entity has the family type.
+     * Ref: https://minecraft.fandom.com/wiki/Family
+     */
     hasFamily(familyType: HashedString | string): boolean {
         if (familyType instanceof HashedString) {
             return this.hasFamily_(familyType);
@@ -991,8 +1008,43 @@ export class Actor extends AbstractClass {
         hashStr.destruct();
         return hasFamily;
     }
+    /**
+     * Returns the distance from the entity(returns of {@link getPosition}) to {@link dest}
+     */
+    distanceTo(dest: Vec3): number {
+        abstract();
+    }
+    /**
+     * Returns the mob that hurt the entity(`this`)
+     */
+    getLastHurtByMob(): Mob | null {
+        abstract();
+    }
+    /**
+     * Returns the last actor damage cause for the entity.
+     */
+    getLastHurtCause(): ActorDamageCause {
+        abstract();
+    }
+    /**
+     * Returns the last damage amount for the entity.
+     */
+    getLastHurtDamage(): number {
+        abstract();
+    }
+    /**
+     * Returns a mob that was hurt by the entity(`this`)
+     */
+    getLastHurtMob(): Mob | null {
+        abstract();
+    }
+    /**
+     * Returns whether the entity was last hit by a player.
+     */
+    wasLastHitByPlayer(): boolean {
+        abstract();
+    }
 }
-
 export class Mob extends Actor {
     /**
      * Applies knockback to the mob
@@ -1030,6 +1082,21 @@ export class Mob extends Actor {
     }
     setSpeed(speed: number): void {
         abstract();
+    }
+    protected hurtEffects_(sourceOrCause: ActorDamageSource, damage: number, knock: boolean, ignite: boolean): boolean {
+        abstract();
+    }
+    /**
+     * Shows hurt effects to the mob. Actually not hurt.
+     * Useful when change the health of the mob without triggering {@link events.entityHurt} event.
+     */
+    hurtEffects(damageCause: ActorDamageCause, damage: number, knock: boolean, ignite: boolean): boolean;
+    hurtEffects(damageSource: ActorDamageSource, damage: number, knock: boolean, ignite: boolean): boolean;
+    hurtEffects(sourceOrCause: ActorDamageCause | ActorDamageSource, damage: number, knock: boolean, ignite: boolean): boolean {
+        const isSource = sourceOrCause instanceof ActorDamageSource;
+        const source = isSource ? sourceOrCause : ActorDamageSource.create(sourceOrCause);
+        const retval = this.hurtEffects_(source, damage, knock, ignite);
+        return retval;
     }
 }
 

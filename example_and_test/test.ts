@@ -11,19 +11,18 @@ import { CommandContext, CommandPermissionLevel } from "bdsx/bds/command";
 import { JsonValue } from "bdsx/bds/connreq";
 import { HashedString } from "bdsx/bds/hashedstring";
 import { ItemStack } from "bdsx/bds/inventory";
-import { ServerLevel } from "bdsx/bds/level";
-import { ByteArrayTag, ByteTag, CompoundTag, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, ShortTag, StringTag, Tag } from "bdsx/bds/nbt";
-import { networkHandler, NetworkIdentifier } from "bdsx/bds/networkidentifier";
+import { ByteArrayTag, ByteTag, CompoundTag, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, NBT, ShortTag, StringTag, Tag } from "bdsx/bds/nbt";
+import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
 import { MinecraftPacketIds } from "bdsx/bds/packetids";
 import { AttributeData, PacketIdToType } from "bdsx/bds/packets";
 import { Player, PlayerPermission } from "bdsx/bds/player";
 import { procHacker } from "bdsx/bds/proc";
-import { serverInstance } from "bdsx/bds/server";
 import { proc, proc2 } from "bdsx/bds/symbols";
 import { bin } from "bdsx/bin";
 import { capi } from "bdsx/capi";
 import { command } from "bdsx/command";
 import { CommandParameterType } from "bdsx/commandparam";
+import { CommandResultType } from "bdsx/commandresult";
 import { AttributeName, CANCEL } from "bdsx/common";
 import { NativePointer } from "bdsx/core";
 import { CxxMap } from "bdsx/cxxmap";
@@ -40,14 +39,11 @@ import { bin64_t, bool_t, CxxString, float32_t, float64_t, int16_t, int32_t, uin
 import { CxxStringWrapper } from "bdsx/pointer";
 import { PseudoRandom } from "bdsx/pseudorandom";
 import { Tester } from "bdsx/tester";
-import { arrayEquals, getEnumKeys, hex } from "bdsx/util";
+import { arrayEquals, getEnumKeys, hex, stripSlashes } from "bdsx/util";
+import { getRecentSentPacketId } from "./net-rawpacket";
 
 let sendidcheck = 0;
 let chatCancelCounter = 0;
-
-export function setRecentSendedPacketForTest(packetId: number): void {
-    sendidcheck = packetId;
-}
 
 function checkCommandRegister(tester:Tester, testname:string, testcases:[CommandParameterType<any>, string, any][], throughConsole?:boolean):Promise<void> {
     const paramsobj:Record<string, CommandParameterType<any>> = {};
@@ -90,8 +86,12 @@ function checkCommandRegister(tester:Tester, testname:string, testcases:[Command
         if (throughConsole) {
             bedrockServer.executeCommandOnConsole(cmdline);
         } else {
-            if (!bedrockServer.executeCommand(cmdline, false).isSuccess()) {
+            const res = bedrockServer.executeCommand(cmdline, CommandResultType.OutputAndData);
+            if (!res.isSuccess()) {
                 tester.error(`${cmdname} failed`, 5);
+            } else {
+                tester.equals(res.data.statusMessage, 'passed', `${cmdname}, unexpected statusMessage`);
+                tester.equals(res.data.statusCode, res.getFullCode(), `${cmdname}, unexpected statusCode`);
             }
         }
     });
@@ -134,22 +134,24 @@ Tester.concurrency({
     },
 }, {
     async globals() {
+        const serverInstance = bedrockServer.serverInstance;
         this.assert(!!serverInstance && serverInstance.isNotNull(), 'serverInstance not found');
-        this.assert(serverInstance.vftable.equals(proc2['??_7ServerInstance@@6BEnableNonOwnerReferences@Bedrock@@@']),
+        this.assert(serverInstance.vftable.equalsptr(proc2['??_7ServerInstance@@6BEnableNonOwnerReferences@Bedrock@@@']),
             'serverInstance is not ServerInstance');
+        const networkHandler = bedrockServer.networkHandler;
         this.assert(!!networkHandler && networkHandler.isNotNull(), 'networkHandler not found');
-        this.assert(networkHandler.vftable.equals(proc2['??_7NetworkHandler@@6BIGameConnectionInfoProvider@Social@@@']),
+        this.assert(networkHandler.vftable.equalsptr(proc2['??_7NetworkHandler@@6BIGameConnectionInfoProvider@Social@@@']),
             'networkHandler is not NetworkHandler');
-        this.assert(serverInstance.minecraft.vftable.equals(proc["Minecraft::`vftable'"]), 'minecraft is not Minecraft');
-        this.assert(serverInstance.minecraft.getCommands().sender.vftable.equals(proc["CommandOutputSender::`vftable'"]), 'sender is not CommandOutputSender');
+        this.assert(bedrockServer.minecraft.vftable.equalsptr(proc["Minecraft::`vftable'"]), 'minecraft is not Minecraft');
+        this.assert(bedrockServer.commandOutputSender.vftable.equalsptr(proc["CommandOutputSender::`vftable'"]), 'sender is not CommandOutputSender');
 
-        this.assert(networkHandler.instance.vftable.equals(proc2["??_7RakNetInstance@@6BConnector@@@"]),
+        this.assert(networkHandler.instance.vftable.equalsptr(proc2["??_7RakNetInstance@@6BConnector@@@"]),
             'networkHandler.instance is not RaknetInstance');
 
-        this.assert(networkHandler.instance.peer.vftable.equals(proc2["??_7RakPeer@RakNet@@6BRakPeerInterface@1@@"]),
+        this.assert(networkHandler.instance.peer.vftable.equalsptr(proc2["??_7RakPeer@RakNet@@6BRakPeerInterface@1@@"]),
             'networkHandler.instance.peer is not RakNet::RakPeer');
 
-        const shandle = serverInstance.minecraft.getServerNetworkHandler();
+        const shandle = bedrockServer.serverNetworkHandler;
         shandle.setMotd('TestMotd');
         this.equals(shandle.motd, 'TestMotd', 'unexpected motd');
 
@@ -206,6 +208,7 @@ Tester.concurrency({
     },
 
     bin() {
+        this.equals(bin.parse('0'), '', 'bin.parse("0")');
         this.equals(bin.make64(1, 0), bin64_t.one, 'bin.make64(1, 0)', bin.toString);
         this.equals(bin.make64(0, 0), bin64_t.zero, 'bin.make64(0, 0)', bin.toString);
         this.equals(bin.make64(-1, -1), bin64_t.minus_one, 'bin.make64(-1, -1)', bin.toString);
@@ -468,6 +471,7 @@ Tester.concurrency({
         cls.vector3.push(vec);
         clsvector.push(cls);
         clsvector.push(cls);
+        cls.destruct();
 
         const cloned = CxxVector.make(VectorClass).construct(clsvector);
         this.equals(cloned.get(0)!.vector.toArray().join(','), 'test1,test2', 'class, string vector');
@@ -477,6 +481,7 @@ Tester.concurrency({
         this.equals(cloned.get(0)!.vector3.toArray().map(v=>v.toArray().join(',')).join(','), 't1,t2,,,,t1,t2,,,', 'class, string vector');
         this.equals(cloned.get(1)!.vector3.toArray().map(v=>v.toArray().join(',')).join(','), 't1,t2,,,,t1,t2,,,', 'cloned class, string vector');
         cloned.destruct();
+        clsvector.destruct();
     },
 
     map() {
@@ -516,14 +521,14 @@ Tester.concurrency({
         const cb = (cmd:string, origin:string, ctx:CommandContext) => {
             if (cmd === '/__dummy_command') {
                 passed = origin === 'Server';
-                this.assert(ctx.origin.vftable.equals(proc["ServerCommandOrigin::`vftable'"]), 'invalid origin');
-                this.assert(ctx.origin.getDimension().vftable.equals(proc2['??_7OverworldDimension@@6BLevelListener@@@']), 'invalid dimension');
+                this.assert(ctx.origin.vftable.equalsptr(proc["ServerCommandOrigin::`vftable'"]), 'invalid origin');
+                this.assert(ctx.origin.getDimension().vftable.equalsptr(proc2['??_7OverworldDimension@@6BLevelListener@@@']), 'invalid dimension');
                 const pos = ctx.origin.getWorldPosition();
                 this.assert(pos.x === 0 && pos.y === 0 && pos.z === 0, 'world pos is not zero');
                 const actor = ctx.origin.getEntity();
                 this.assert(actor === null, `origin.getEntity() is not null. result = ${actor}`);
                 const level = ctx.origin.getLevel();
-                this.assert(level.vftable.equals(proc2['??_7ServerLevel@@6BILevel@@@']), 'origin.getLevel() is not ServerLevel');
+                this.assert(level.vftable.equalsptr(proc2['??_7ServerLevel@@6BILevel@@@']), 'origin.getLevel() is not ServerLevel');
                 const players = level.getPlayers();
                 const size = players.length;
                 this.equals(size, 0, 'origin.getLevel().players.size is not zero');
@@ -612,6 +617,8 @@ Tester.concurrency({
             ['EduUriResource', 'EduUriResourcePacket'],
             ['CreatePhoto', 'CreatePhotoPacket'],
             ['UpdateSubChunkBlocks', 'UpdateSubChunkBlocksPacket'],
+            ['ItemStackRequest', 'ItemStackRequestPacket'],
+            ['ItemStackResponse', 'ItemStackResponsePacket'],
         ]);
 
         for (const id in PacketIdToType) {
@@ -680,6 +687,10 @@ Tester.concurrency({
                 sendpacket++;
             }, 0));
             events.packetSendRaw(i).on(this.wrap((ptr, size, ni, packetId) => {
+                const recentSent = getRecentSentPacketId();
+                if (recentSent !== null) {
+                    sendidcheck = recentSent;
+                }
                 if (Date.now() < ignoreEndingPacketsAfter) {
                     this.assert(ni.getAddress() !== 'UNASSIGNED_SYSTEM_ADDRESS', 'packetSendRaw, Invalid ni, id='+packetId);
                 }
@@ -729,20 +740,19 @@ Tester.concurrency({
 
     actor() {
         events.entityCreated.on(this.wrap(ev => {
-            const level = serverInstance.minecraft.getLevel().as(ServerLevel);
+            const level = bedrockServer.level;
 
             try {
                 const actor = ev.entity;
                 const identifier = actor.getIdentifier();
                 this.assert(identifier.startsWith('minecraft:'), 'Invalid identifier');
                 if (identifier === 'minecraft:player') {
-                    this.equals(level.players.size(),  serverInstance.getActivePlayerCount(), 'Unexpected player size');
-                    this.assert(level.players.capacity() > 0, 'Unexpected player capacity');
+                    this.equals(level.getPlayers().length,  bedrockServer.serverInstance.getActivePlayerCount(), 'Unexpected player size');
                     this.assert(actor !== null, 'Actor.fromEntity of player is null');
                 }
 
                 if (actor !== null) {
-                    this.assert(actor.getDimension().vftable.equals(proc2['??_7OverworldDimension@@6BLevelListener@@@']),
+                    this.assert(actor.getDimension().vftable.equalsptr(proc2['??_7OverworldDimension@@6BLevelListener@@@']),
                         'getDimension() is not OverworldDimension');
                     this.equals(actor.getDimensionId(), DimensionId.Overworld, 'getDimensionId() is not overworld');
                     if (actor instanceof Player) {
@@ -853,9 +863,9 @@ Tester.concurrency({
     testPlayerCount() {
         events.queryRegenerate.once(this.wrap(v=>{
             this.equals(v.currentPlayers, 0, 'player count mismatch');
-            this.equals(v.maxPlayers, serverInstance.getMaxPlayers(), 'max player mismatch');
+            this.equals(v.maxPlayers, bedrockServer.serverInstance.getMaxPlayers(), 'max player mismatch');
         }));
-        serverInstance.minecraft.getServerNetworkHandler().updateServerAnnouncement();
+        bedrockServer.serverNetworkHandler.updateServerAnnouncement();
 
         events.packetAfter(MinecraftPacketIds.Login).once(this.wrap((packet, ni)=>{
             setTimeout(this.wrap(()=>{
@@ -869,10 +879,6 @@ Tester.concurrency({
     etc() {
         const item = ItemStack.constructWith('minecraft:acacia_boat');
         item.destruct();
-
-        const level = serverInstance.minecraft.getLevel();
-        const pos = level.getDefaultSpawn();
-        level.setDefaultSpawn(pos);
     },
 
     nbt() {
@@ -904,6 +910,8 @@ Tester.concurrency({
             const list = ListTag.allocate();
             list.push(str);
 
+            this.assert(list.equals(list), 'list.equals');
+
             for (let j=0;j<10;j++) {
                 map.set('barray', barray);
                 map.set('iarray', iarray);
@@ -927,6 +935,46 @@ Tester.concurrency({
             this.equals(Object.keys(mapvalue).length, map.size(), 'Compound key count check');
             map.dispose();
         }
+
+        const nbtSample = {
+            int:123,
+            true:true,
+            false:false,
+            byte:NBT.byte(1),
+            short:NBT.short(2),
+            int2:NBT.int(3),
+            int64:NBT.int64(4),
+            string:'string',
+            list:[1,2,3,4,'1','2','3','4', [], {}],
+            emptyList:[],
+            byteArray:NBT.byteArray([1,2,3]),
+            emptyByteArray:NBT.byteArray([]),
+            intArray:NBT.intArray([1]),
+            emptyIntArray:NBT.intArray([]),
+            compound: {
+                compound: {'a':'a','b':'b','c':'c'},
+                0:0,
+                1:1,
+                2:2,
+            },
+            emptyCompound: {},
+            '\\':'backslash test\\',
+            '\\\\':'backslash test\\\\',
+            '\\\\\\':'backslash test\\\\\\',
+            '\\\"\\\\\\':'backslash test\\\\\\\"\\',
+        };
+
+        const snbt = NBT.stringify(nbtSample, 4);
+        const oldone = NBT.allocate(nbtSample);
+        const newone = NBT.allocate(NBT.parse(snbt));
+        if (!oldone.equals(newone)) {
+            this.error('SNBT converting mismatch');
+        }
+        this.equals(stripSlashes('\\\\\\"\\n\\r\\b\\v\\f\\t\\\'\\u0031\\x31'), '\\"\n\r\b\v\f\t\'11', 'stripSlashes');
+        this.equals(
+            NBT.stringify(NBT.parse('{"true":true,false:false,\'string\':\'string\',"longArray":[L;1l,2l,3l,4l]}')),
+            '{true:1b,false:0b,string:"string",longArray:[1l,2l,3l,4l]}',
+            'SNBT parse only feature');
     },
 
     itemActor() {
@@ -935,7 +983,7 @@ Tester.concurrency({
             const region = ev.player.getRegion();
             const actor = Actor.summonAt(region, pos, ActorType.Item, -1);
             this.assert(actor instanceof ItemActor, 'ItemActor summoning');
-            this.assert((actor as ItemActor).itemStack.vftable.equals(proc["ItemStack::`vftable'"]), 'ItemActor.itemStack is not ItemStack');
+            this.assert((actor as ItemActor).itemStack.vftable.equalsptr(proc["ItemStack::`vftable'"]), 'ItemActor.itemStack is not ItemStack');
             actor.despawn();
         }));
     },
@@ -952,6 +1000,8 @@ Tester.concurrency({
         this.equals(Block.create('minecraft:air')?.getName(), 'minecraft:air');
         this.equals(Block.create('minecraft:element_111')?.getName(), 'minecraft:element_111');
         this.equals(Block.create('minecraft:_no_block_'), null, 'minecraft:_no_block_ is not null');
+        this.assert(Block.create('dirt')!.equalsptr(Block.create('dirt')), 'dirt is not dirt');
+        this.assert(!Block.create('planks', 0)!.equalsptr(Block.create('planks', 1)), 'planks#0 is planks#1');
     },
 
     blob() {

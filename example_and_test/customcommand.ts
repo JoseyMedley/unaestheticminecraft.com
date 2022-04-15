@@ -2,7 +2,7 @@
 // Custom Command
 import { DimensionId } from "bdsx/bds/actor";
 import { RelativeFloat, Vec3 } from "bdsx/bds/blockpos";
-import { ActorCommandSelector, Command, CommandPermissionLevel, CommandPosition, CommandRawText, CommandSoftEnum, PlayerCommandSelector } from "bdsx/bds/command";
+import { ActorCommandSelector, Command, CommandPermissionLevel, CommandPosition, CommandRawText, PlayerCommandSelector } from "bdsx/bds/command";
 import { JsonValue } from "bdsx/bds/connreq";
 import { ServerPlayer } from "bdsx/bds/player";
 import { command } from "bdsx/command";
@@ -82,7 +82,7 @@ command.register('fff', 'boolean example').overload((param, origin, output)=>{
 });
 
 // enum
-// serverInstance.minecraft.getLevel().setCommandsEnabled(true); // (?) it shows the enum list, but it will turn on allow-cheats.
+// bedrockServer.level.setCommandsEnabled(true); // (?) it shows the enum list, but it will turn on allow-cheats.
 command.register('ggg', 'enum example').overload((param, origin, output)=>{
     output.success(
         `enum example> origin=${origin.getName()}\n`+
