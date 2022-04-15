@@ -6,13 +6,12 @@ import { events } from "./bdsx/event";
 import { serverInstance } from "bdsx/bds/server";
 import { DeviceOS } from "bdsx/common";
 import { ServerPlayer } from "bdsx/bds/player";
-import { ByteTag, CompoundTag, IntTag, ListTag, ShortTag } from "bdsx/bds/nbt";
-import { EnchantmentNames, EnchantUtils, ItemEnchants } from "./bdsx/bds/enchants";
+import { CompoundTag, ListTag, ShortTag } from "bdsx/bds/nbt";
 import { BlockPos } from "bdsx/bds/blockpos";
 import { CxxVector } from "bdsx/cxxvector";
 import { int16_t } from "bdsx/nativetype";
+import { bedrockServer } from "bdsx/launcher";
 console.log("Open Anticheat loaded");
-const system = server.registerSystem(0, 0);
 
 // illegal entities and blocks
 var illegalEntities = ["minecraft:ender_dragon", "minecraft:phantom", "minecraft:elder_guardian_ghost", "minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard"];
@@ -234,13 +233,14 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
                     if (items != (null || undefined)){
                         const Name = "" + e.get("Name");
                         const Slot = ("" + e.get("Slot")).length;
-                        if (Name == "minecraft:shulker_box"){
+                        if (Name == "minecraft:shulker_box" || Name == "minecraft:undyed_shulker_box"){
                             console.log("Cleared nested shulker from shulker at " + x +" "+ y +" "+ z + " (At slot " + Slot + ")");
                             if (y > 320){
                                 y = y - 4294967296;
                                 //forgive me jeebus for this bullshit fix
                             }
-                            system.executeCommand(`/replaceitem block ${x} ${y} ${z} slot.container ` + Slot + " stone", () => {});
+                            var dim = region.getDimension();
+                            bedrockServer.executeCommand(`/replaceitem block ${x} ${y} ${z} slot.container ` + Slot + " stone", false);
                         }
                     }
                 }
