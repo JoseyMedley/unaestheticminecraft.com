@@ -98,11 +98,9 @@ events.packetAfter(MinecraftPacketIds.Login).on((pk, ni) => {
     let connreq = pk.connreq;
     if (!connreq) return;
     let cert = connreq.cert;
-    if (connreq.getJsonValue()!.DeviceOS !== DeviceOS.PLAYSTATION) {
-        names.set(ni, cert.getIdentityName());
-        currentmessages.set(ni, "");
-        points.set(ni, 0);
-    }
+    names.set(ni, cert.getIdentityName());
+    currentmessages.set(ni, "");
+    points.set(ni, 0);
 });
 
 events.packetSend(MinecraftPacketIds.PlayStatus).on((pk, ni) => {
