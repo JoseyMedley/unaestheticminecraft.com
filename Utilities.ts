@@ -5,13 +5,14 @@ import { MinecraftPacketIds } from "./bdsx/bds/packetids";
 import { command } from "./bdsx/command";
 import { TextPacket } from "bdsx/bds/packets";
 import { DeviceOS } from "bdsx/common";
+import { bedrockServer } from "bdsx/launcher";
 
 console.log("initializing Utilities");
-const system = server.registerSystem(0, 0);
+bedrockServer.executeCommand("/gamerule showcoordinates true", true);
 command.register("suicide", "respawns yourself").overload((param, origin, output) =>{
     var playername = origin.getName();
     var newcommand = "/kill " + playername;
-    system.executeCommand(newcommand, () => {});
+    bedrockServer.executeCommand(newcommand, true);
 }, {});
 
 
