@@ -2,7 +2,7 @@ import { bin } from "../bin";
 import { CircularDetector } from "../circulardetector";
 import { abstract } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
-import { events } from "../event";
+import { CxxVector } from "../cxxvector";
 import { AbstractClass, nativeClass, NativeClass, nativeField, NativeStruct } from "../nativeclass";
 import { bin64_t, bool_t, CxxString, float32_t, int32_t, int64_as_float_t, uint8_t } from "../nativetype";
 import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
@@ -574,6 +574,13 @@ export class Actor extends AbstractClass {
         abstract();
     }
     /**
+     * Makes the entity dead
+     * @param damageSource ex) ActorDamageSource.create(ActorDamageCause.Lava)
+     */
+    die(damageSource: ActorDamageSource): void {
+        abstract();
+    }
+    /**
      * Returns the entity's attribute map
      */
     getAttributes():BaseAttributeMap {
@@ -711,7 +718,7 @@ export class Actor extends AbstractClass {
     /**
      * Gets the entity component of bedrock scripting api
      *
-     * @deprecated bedrock scripting API will be removed.
+     * @deprecated bedrock scripting API is removed.
      */
     getEntity():IEntity {
         let entity:IEntity = (this as any).entity;
@@ -864,9 +871,8 @@ export class Actor extends AbstractClass {
      * Changes a specific status flag of the entity
      * @remarks Most of the time it will be reset by ticking
      *
-     * @returns {boolean} Whether the flag has been changed successfully
      */
-    setStatusFlag(flag:ActorFlags, value:boolean):boolean {
+    setStatusFlag(flag:ActorFlags, value:boolean):void {
         abstract();
     }
     /**
@@ -961,7 +967,7 @@ export class Actor extends AbstractClass {
     }
     /**
      * Gets the entity from entity component of bedrock scripting api
-     * @deprecated bedrock scripting API will be removed.
+     * @deprecated bedrock scripting API is removed.
      */
     static fromEntity(entity:IEntity, getRemovedActor:boolean = true):Actor|null {
         const u = entity.__unique_id__;
@@ -1044,7 +1050,35 @@ export class Actor extends AbstractClass {
     wasLastHitByPlayer(): boolean {
         abstract();
     }
+    protected fetchNearbyActorsSorted_(maxDistance: Vec3, filter: ActorType): CxxVector<DistanceSortedActor> {
+        abstract();
+    }
+    /**
+     * Fetches other entities nearby from the entity.
+     */
+    fetchNearbyActorsSorted(maxDistance: Vec3, filter: ActorType): DistanceSortedActor[] {
+        const vector = this.fetchNearbyActorsSorted_(maxDistance, filter);
+        const length = vector.size();
+        const arr = new Array(length);
+        for (let i = 0; i < length; i++) {
+            arr[i] = DistanceSortedActor.construct(vector.get(i));
+        }
+        vector.destruct();
+        return arr;
+    }
 }
+
+@nativeClass()
+export class DistanceSortedActor extends NativeStruct {
+    @nativeField(Actor.ref())
+    entity: Actor;
+    /** @deprecated use distanceSq */
+    @nativeField(float32_t, {ghost: true})
+    distance: float32_t;
+    @nativeField(float32_t)
+    distanceSq: float32_t;
+}
+
 export class Mob extends Actor {
     /**
      * Applies knockback to the mob
@@ -1062,9 +1096,6 @@ export class Mob extends Actor {
         abstract();
     }
     setSprinting(shouldSprint:boolean):void {
-        abstract();
-    }
-    kill():void {
         abstract();
     }
 

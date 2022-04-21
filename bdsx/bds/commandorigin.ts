@@ -56,10 +56,10 @@ export class CommandOrigin extends AbstractClass {
         return this.vftable.equalsptr(ServerCommandOrigin_vftable);
     }
     /**
-     * @deprecated bedrock scripting API will be removed.
+     * @deprecated bedrock scripting API is removed.
      */
     isScriptCommandOrigin():boolean {
-        return this.vftable.equalsptr(ScriptCommandOrigin_vftable);
+        return false; // this.vftable.equalsptr(ScriptCommandOrigin_vftable);
     }
 
     getRequestId():CxxString {
@@ -157,17 +157,12 @@ export class VirtualCommandOrigin extends CommandOrigin {
     }
 }
 
+/**
+ * @deprecated bedrock scripting API is removed.
+ */
 @nativeClass(null)
 export class ScriptCommandOrigin extends PlayerCommandOrigin {
-    // struct VFTable
-    // {
-    //     void (*destructor)(ScriptCommandOrigin*);
-    //     Level* (*getLevel)(ScriptCommandOrigin*);
-    // };
-    // VFTable* vftable;
 }
-
-const ScriptCommandOrigin_vftable = proc["ScriptCommandOrigin::`vftable'"];
 
 @nativeClass(0x48)
 export class ServerCommandOrigin extends CommandOrigin {
@@ -216,7 +211,7 @@ CommandOrigin.prototype.getEntity = makefunc.js([0x40], Actor, {this: CommandOri
 CommandOrigin.prototype.getOriginType = makefunc.js([0xb8], uint8_t, {this: CommandOrigin});
 
 // void handleCommandOutputCallback(Json::Value &&);
-const handleCommandOutputCallback = makefunc.js([0xc0], void_t, {this: CommandOrigin}, JsonValue);
+const handleCommandOutputCallback = makefunc.js([0xd0], void_t, {this: CommandOrigin}, JsonValue);
 
 // struct CompoundTag CommandOrigin::serialize(void)
 const serializeCommandOrigin = makefunc.js([0xe8], CompoundTag, {this:CommandOrigin}, CompoundTag);
