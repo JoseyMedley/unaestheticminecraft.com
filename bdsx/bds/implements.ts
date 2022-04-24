@@ -269,10 +269,10 @@ Actor.prototype.setOffhandSlot = procHacker.js('Actor::setOffhandSlot', void_t, 
 
 const TeleportCommand$computeTarget = procHacker.js("TeleportCommand::computeTarget", void_t, null, StaticPointer, Actor, Vec3, Vec3, int32_t);
 const TeleportCommand$applyTarget = procHacker.js("TeleportCommand::applyTarget", void_t, null, Actor, StaticPointer);
-Actor.prototype.teleport = function(pos:Vec3, dimensionId:DimensionId=DimensionId.Overworld) {
-    const alloc = new AllocatedPointer(0x80);
-    TeleportCommand$computeTarget(alloc, this, pos, new Vec3(true), dimensionId);
-    TeleportCommand$applyTarget(this, alloc);
+Actor.prototype.teleport = function(pos:Vec3, dimensionId:DimensionId=DimensionId.Overworld, facePosition:Vec3=new Vec3(true)) {
+    const target = new AllocatedPointer(0x80);
+    TeleportCommand$computeTarget(target, this, pos, facePosition, dimensionId);
+    TeleportCommand$applyTarget(this, target);
 };
 Actor.prototype.getArmor = procHacker.js('Actor::getArmor', ItemStack, {this:Actor}, int32_t);
 
@@ -359,7 +359,7 @@ Actor.prototype.load = function(tag:CompoundTag|NBT.Compound):void {
     }
 };
 
-(Actor.prototype as any).hurt_ = procHacker.js("Actor::hurt", bool_t, {this:Actor}, ActorDamageSource, int32_t, bool_t, bool_t);
+(Actor.prototype as any).hurt_ = procHacker.js("Actor::hurt", bool_t, {this:Actor}, ActorDamageSource, float32_t, bool_t, bool_t);
 
 Actor.prototype.setStatusFlag = procHacker.js("?setStatusFlag@Actor@@QEAAXW4ActorFlags@@_N@Z", void_t, {this:Actor}, int32_t, bool_t);
 Actor.prototype.getStatusFlag = procHacker.js("?getStatusFlag@Actor@@QEBA_NW4ActorFlags@@@Z", bool_t, {this:Actor}, int32_t);
@@ -674,6 +674,7 @@ ServerNetworkHandler.prototype._getServerPlayer = procHacker.js("ServerNetworkHa
 ServerNetworkHandler.prototype.allowIncomingConnections = procHacker.js("ServerNetworkHandler::allowIncomingConnections", void_t, {this:ServerNetworkHandler}, CxxString, bool_t);
 ServerNetworkHandler.prototype.updateServerAnnouncement = procHacker.js("ServerNetworkHandler::updateServerAnnouncement", void_t, {this:ServerNetworkHandler});
 ServerNetworkHandler.prototype.setMaxNumPlayers = procHacker.js("ServerNetworkHandler::setMaxNumPlayers", void_t, {this:ServerNetworkHandler}, int32_t);
+ServerNetworkHandler.prototype.fetchConnectionRequest = procHacker.js("ServerNetworkHandler::fetchConnectionRequest", ConnectionRequest, {this:ServerNetworkHandler}, NetworkIdentifier);
 
 // connreq.ts
 Certificate.prototype.getXuid = function():string {
@@ -691,10 +692,6 @@ namespace ExtendedCertificate {
     export const getIdentityName = procHacker.js("ExtendedCertificate::getIdentityName", CxxString, {structureReturn: true}, Certificate);
     export const getIdentity = procHacker.js("ExtendedCertificate::getIdentity", mce.UUIDWrapper, {structureReturn: true}, Certificate);
 }
-ConnectionRequest.abstract({
-    cert:[Certificate.ref(), 0x08],
-    something:[Certificate.ref(), 0x10],
-});
 
 // attribute.ts
 AttributeInstance.abstract({
