@@ -18,7 +18,7 @@ import type { Level } from "./level";
 import { CompoundTag, NBT } from "./nbt";
 import type { NetworkIdentifier } from "./networkidentifier";
 import { Packet } from "./packet";
-import type { ServerPlayer } from "./player";
+import type { Player, ServerPlayer } from "./player";
 
 export const ActorUniqueID = bin64_t.extends();
 export type ActorUniqueID = bin64_t;
@@ -243,6 +243,15 @@ export class ActorDamageSource extends NativeClass{
     }
 }
 
+@nativeClass(0x50)
+export class ActorDamageByActorSource extends ActorDamageSource {
+    static constructWith(this:never, cause: ActorDamageCause): ActorDamageSource;
+    static constructWith(damagingEntity:Actor, cause?: ActorDamageCause): ActorDamageByActorSource;
+    static constructWith(damagingEntity:Actor|ActorDamageCause, cause: ActorDamageCause = ActorDamageCause.EntityAttack): ActorDamageByActorSource {
+        abstract();
+    }
+}
+
 export enum ActorDamageCause {
     /** The kill command */
     Override,
@@ -416,6 +425,16 @@ export class OwnerStorageEntity extends AbstractClass {
 export class EntityRefTraits extends AbstractClass {
     @nativeField(OwnerStorageEntity)
     context:OwnerStorageEntity;
+}
+
+@nativeClass(0x18)
+export class WeakEntityRef extends AbstractClass {
+    tryUnwrapPlayer(getRemoved: boolean = false): Player | null {
+        abstract();
+    }
+    tryUnwrapActor(getRemoved: boolean = false): Actor | null {
+        abstract();
+    }
 }
 
 @nativeClass(null)
