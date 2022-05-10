@@ -3,8 +3,6 @@ import { NetworkIdentifier } from "./bdsx/bds/networkidentifier";
 import { CANCEL } from "./bdsx/common"
 import { MinecraftPacketIds } from "./bdsx/bds/packetids";
 import { events } from "./bdsx/event";
-import { serverInstance } from "bdsx/bds/server";
-import { DeviceOS } from "bdsx/common";
 import { ServerPlayer } from "bdsx/bds/player";
 import { CompoundTag, ListTag, ShortTag } from "bdsx/bds/nbt";
 import { BlockPos } from "bdsx/bds/blockpos";
@@ -23,7 +21,7 @@ var illegalItems = [];
 //illegal entities patch
 events.entityCreated.on((ev)=>{
     var entity = ev.entity;
-    var Id = entity.getEntity().__identifier__;
+    var Id = entity.getIdentifier();
     if (illegalEntities.indexOf(Id) != -1){
         entity.despawn();
         console.log("Illegal Entity Despawned");
@@ -54,7 +52,7 @@ events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => 
                 var playername = ni.getActor()?.getName();
                 if (playername == undefined) return CANCEL;
                 console.log(playername + " used fake inventory transaction packets");
-                serverInstance.disconnectClient(ni, `I don't .give a shit`);
+                bedrockServer.serverInstance.disconnectClient(ni, `I don't .give a shit`);
                 return CANCEL;
             }
         } catch {}
@@ -67,7 +65,7 @@ events.packetBefore(MinecraftPacketIds.PlayerAuthInput).on((pk, ni) => {
         var playername = ni.getActor()?.getName();
         if (playername == undefined) return CANCEL;
         console.log(playername + " used crasher");
-        serverInstance.disconnectClient(ni, `Did you really think that shit would work here`);
+        bedrockServer.serverInstance.disconnectClient(ni, `Did you really think that shit would work here`);
         return CANCEL;
     }
 });
@@ -108,7 +106,7 @@ events.packetSend(MinecraftPacketIds.PlayStatus).on((pk, ni) => {
         if (names.get(ni)) {
             if (ni.getActor()!.getName() !== names.get(ni)) {
                 console.log(names.get(ni) + " used fakename");
-                serverInstance.disconnectClient(ni, `Use your real username dipshit`);
+                bedrockServer.serverInstance.disconnectClient(ni, `Use your real username dipshit`);
             }
         }
     }
@@ -120,7 +118,7 @@ let enchants = {
     "2": "4",
     "3": "4",
     "4": "4",
-    "5": "0", //this is thorns. revert this to 3 if it no longer crashes servers
+    "5": "3", //this is thorns. revert this to 3 if it no longer crashes servers
     "6": "3",
     "7": "3",
     "8": "1",
@@ -157,7 +155,7 @@ let enchants = {
 //32k patch. First version by DAMcraft. Improved by thesoulblazer. Then re-made to all items by DAMcraft and modified to the nbt branch
 events.playerInventoryChange.on((ev)=>{
     let player = ev.player;
-    let inv = player.getInventory().getSlots().toArray().forEach(item => {
+    player.getInventory().container.getSlots().toArray().forEach(item => {
         if (item.getUserData() != null){
             let ud = item.getUserData();
             if (ud.get("ench") != null){
@@ -169,7 +167,7 @@ events.playerInventoryChange.on((ev)=>{
                     let string_id = "" + id;
                     let allowed_lvl = enchants[string_id];
                     if (allowed_lvl < lvl) {
-                        console.log("Reverted a 32k");
+                        console.log("Reverted an overenchanted item");
                         enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
                     }
                 });
@@ -207,7 +205,7 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
     let z = ev.pos.z;
     let onplayers: any[] = [];
     let distances: any[] = [];
-    serverInstance.getPlayers().forEach(element => {
+    bedrockServer.serverInstance.getPlayers().forEach(element => {
         let px = Math.round(element.getPosition().x);
         let pz = Math.round(element.getPosition().z);
         // console.log("Player pos: ", px, pz)
@@ -225,7 +223,7 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
         const blockEntity = region.getBlockEntity(bpos);
         if (region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:undyed_shulker_box" || region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:shulker_box"){
             if (blockEntity != null) {
-                const tag = blockEntity.constructAndSave();
+                const tag = blockEntity.allocateAndSave();
                 const items = tag.get("Items") as ListTag;
                 for (const e of items.data as CxxVector<CompoundTag>) {
                     if (items != (null || undefined)){
@@ -258,7 +256,7 @@ events.packetBefore(MinecraftPacketIds.Text).on((ev, ni, packetid) =>{
         var currpoints = points.get(ni);
         if (currpoints == undefined) return;
         if (currpoints >= 5){
-            serverInstance.disconnectClient(ni, `Stop fucking spamming`);
+            bedrockServer.serverInstance.disconnectClient(ni, `Stop fucking spamming`);
             return CANCEL;
         }
         points.set(ni, currpoints + 1);
