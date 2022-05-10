@@ -19,12 +19,12 @@ import { SerializedSkin } from "./skin";
 
 @nativeClass(null)
 export class LoginPacket extends Packet {
-    @nativeField(int32_t, 0x30)
+    @nativeField(int32_t)
 	protocol:int32_t;
     /**
      * it can be null if the wrong client version
      */
-    @nativeField(ConnectionRequest.ref(), 0x38)
+    @nativeField(ConnectionRequest.ref())
 	connreq:ConnectionRequest|null;
 }
 
@@ -639,7 +639,14 @@ export class SetHealthPacket extends Packet {
 
 @nativeClass(null)
 export class SetSpawnPositionPacket extends Packet {
-    // unknown
+    @nativeField(BlockPos)
+    pos:BlockPos;
+    @nativeField(int32_t)
+    spawnType:int32_t;
+    @nativeField(int32_t)
+    dimension:int32_t;
+    @nativeField(BlockPos)
+    causingBlockPos:BlockPos;
 }
 
 @nativeClass(null)
@@ -664,7 +671,12 @@ export namespace AnimatePacket {
 
 @nativeClass(null)
 export class RespawnPacket extends Packet {
-    // unknown
+    @nativeField(Vec3)
+    pos:Vec3;
+    @nativeField(uint8_t)
+    state:uint8_t;
+    @nativeField(ActorRuntimeID)
+    runtimeId:ActorRuntimeID|null;
 }
 
 @nativeClass(null)

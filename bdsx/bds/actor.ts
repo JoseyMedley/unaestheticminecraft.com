@@ -1,5 +1,6 @@
 import { bin } from "../bin";
 import { CircularDetector } from "../circulardetector";
+import type { CommandResult, CommandResultType } from "../commandresult";
 import { abstract } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
 import { CxxVector } from "../cxxvector";
@@ -9,7 +10,7 @@ import { bin64_t, bool_t, CxxString, float32_t, int32_t, int64_as_float_t, uint8
 import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
 import type { BlockSource } from "./block";
 import { Vec2, Vec3 } from "./blockpos";
-import type { CommandPermissionLevel, MCRESULT } from "./command";
+import type { CommandPermissionLevel } from "./command";
 import type { Dimension } from "./dimension";
 import { MobEffect, MobEffectIds, MobEffectInstance } from "./effects";
 import { HashedString } from "./hashedstring";
@@ -1003,7 +1004,7 @@ export class Actor extends AbstractClass {
             obj.type = this.getEntityTypeId();
         });
     }
-    runCommand(command:string, mute:boolean = true, permissionLevel?:CommandPermissionLevel): MCRESULT{
+    runCommand(command:string, mute:CommandResultType = true, permissionLevel?:CommandPermissionLevel): CommandResult<CommandResult.Any> {
         abstract();
     }
     isMoving(): boolean {
@@ -1068,6 +1069,13 @@ export class Actor extends AbstractClass {
      * Returns whether the entity was last hit by a player.
      */
     wasLastHitByPlayer(): boolean {
+        abstract();
+    }
+    /**
+     * Returns the speed of the entity
+     * If the entity is a Player and server-authoritative-movement(in `server.properties`) is `client-auth`, the result is always 0m/s.
+     */
+    getSpeedInMetersPerSecond(): number {
         abstract();
     }
     protected fetchNearbyActorsSorted_(maxDistance: Vec3, filter: ActorType): CxxVector<DistanceSortedActor> {
