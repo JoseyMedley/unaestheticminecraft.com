@@ -8,6 +8,8 @@ import { DeviceOS } from "bdsx/common";
 import { bedrockServer } from "bdsx/launcher";
 
 console.log("initializing Utilities");
+var Radius = 872;
+var Multiplier = [1,-1];
 bedrockServer.executeCommand("/gamerule showcoordinates true", true);
 command.register("suicide", "respawns yourself").overload((param, origin, output) =>{
     var playername = origin.getName();
@@ -20,14 +22,6 @@ command.register("suicide", "respawns yourself").overload((param, origin, output
 events.packetAfter(MinecraftPacketIds.Text).on(ev=>{
     console.log(ev.name + ": " + ev.message);
 });
-
-
-//check inventory
-/*
-command.register("check-inv", "Swaps player inventories").overload((param, origin, output) =>{
-    console.log("bruh");
-});
-*/
 
 events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetId) => {
     const ip = networkIdentifier.getAddress();
@@ -47,4 +41,15 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
         textPacket.sendTo(networkIdentifier);
         textPacket.dispose();
     }, 10000);
+});
+
+events.levelTick.on(() => {
+    var xmultiplier= Math.round(Math.random());
+    var zmultiplier= Math.round(Math.random());
+    var newSpawnPointX= Math.floor(Math.random()*Radius)*Multiplier[xmultiplier];
+    var newSpawnPointZ= Math.floor(Math.random()*Radius)*Multiplier[zmultiplier];
+    var SpawnCommand="/setWorldSpawn ";
+    SpawnCommand= SpawnCommand + String(newSpawnPointX) + " 64 " + String(newSpawnPointZ);
+    bedrockServer.executeCommand(SpawnCommand, true);
+    bedrockServer.executeCommand("/gamerule spawnRadius 128", true);
 });
