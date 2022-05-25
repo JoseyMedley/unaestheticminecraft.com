@@ -7,9 +7,6 @@ import { TextPacket } from "bdsx/bds/packets";
 import { DeviceOS } from "bdsx/common";
 import { bedrockServer } from "bdsx/launcher";
 import { CommandResultType } from "bdsx/commandresult";
-import { CommandContext } from "bdsx/bds/command";
-import { CommandOrigin, ServerCommandOrigin } from "bdsx/bds/commandorigin";
-import { Server } from "http";
 
 
 console.log("initializing Utilities");
@@ -50,17 +47,33 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
 
 var counter = 0;
 events.levelTick.on(() => {
-    var xmultiplier= Math.round(Math.random());
-    var zmultiplier= Math.round(Math.random());
-    var newSpawnPointX= Math.floor(Math.random()*Radius)*Multiplier[xmultiplier];
-    var newSpawnPointZ= Math.floor(Math.random()*Radius)*Multiplier[zmultiplier];
-    var SpawnCommand="/setWorldSpawn ";
-    SpawnCommand= SpawnCommand + String(newSpawnPointX) + " 64 " + String(newSpawnPointZ);
+    var xmultiplier = Math.round(Math.random());
+    var zmultiplier = Math.round(Math.random());
+    var newSpawnPointX = Math.floor(Math.random()*Radius)*Multiplier[xmultiplier];
+    var newSpawnPointZ = Math.floor(Math.random()*Radius)*Multiplier[zmultiplier];
+    var SpawnCommand = "/setWorldSpawn ";
+    SpawnCommand = SpawnCommand + String(newSpawnPointX) + " 64 " + String(newSpawnPointZ);
     bedrockServer.executeCommand(SpawnCommand, true);
     bedrockServer.executeCommand("/gamerule spawnRadius 128", true);
     counter = counter + 1;
     if (counter >= 40){
         //bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
         counter = 0;
+    }
+});
+
+//add ability to break cursed end portals
+events.blockDestructionStart.on(ev =>{
+    var dim = ev.player.getDimension();
+    var Xpos = ev.blockPos.x;
+    var Ypos = String(ev.blockPos.y);
+    var Zpos = String(ev.blockPos.z);
+    if(bedrockServer.executeCommand("/testforblock " + String(Xpos) + " " + Ypos + " " + Zpos + " " + "end_portal", true).result == 1){
+        var firsttest = bedrockServer.executeCommand("/testforblock " + String(Xpos + 1) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        var secondtest = bedrockServer.executeCommand("/testforblock " + String(Xpos + 2) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        var thirdtest = bedrockServer.executeCommand("/testforblock " + String(Xpos + 3) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        if (firsttest + secondtest + thirdtest == 1536){
+            bedrockServer.executeCommand("/fill " + String(Xpos) + " " + Ypos + " " + Zpos + " " + String(Xpos) + " " + Ypos + " " + Zpos + " air", true)
+        }
     }
 });
