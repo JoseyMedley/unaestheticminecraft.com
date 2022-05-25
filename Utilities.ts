@@ -6,9 +6,14 @@ import { command } from "./bdsx/command";
 import { TextPacket } from "bdsx/bds/packets";
 import { DeviceOS } from "bdsx/common";
 import { bedrockServer } from "bdsx/launcher";
+import { CommandResultType } from "bdsx/commandresult";
+import { CommandContext } from "bdsx/bds/command";
+import { CommandOrigin, ServerCommandOrigin } from "bdsx/bds/commandorigin";
+import { Server } from "http";
+
 
 console.log("initializing Utilities");
-var Radius = 872;
+var Radius = 500;
 var Multiplier = [1,-1];
 bedrockServer.executeCommand("/gamerule showcoordinates true", true);
 command.register("suicide", "respawns yourself").overload((param, origin, output) =>{
@@ -43,6 +48,7 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
     }, 10000);
 });
 
+var counter = 0;
 events.levelTick.on(() => {
     var xmultiplier= Math.round(Math.random());
     var zmultiplier= Math.round(Math.random());
@@ -52,4 +58,9 @@ events.levelTick.on(() => {
     SpawnCommand= SpawnCommand + String(newSpawnPointX) + " 64 " + String(newSpawnPointZ);
     bedrockServer.executeCommand(SpawnCommand, true);
     bedrockServer.executeCommand("/gamerule spawnRadius 128", true);
+    counter = counter + 1;
+    if (counter >= 40){
+        //bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
+        counter = 0;
+    }
 });
