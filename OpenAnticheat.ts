@@ -16,7 +16,7 @@ var illegalEntities = ["minecraft:ender_dragon", "minecraft:phantom", "minecraft
 var illegalBlocks = ["tile:invisiblebedrock", "minecraft:end_portal_frame", "minecraft:mob_spawner", "minecraft:allow", "minecraft:deny",
 "minecraft:border_block", "minecraft:structure_void", "minecraft:camera", "minecraft:structure_block", "minecraft:nether_reactor", "minecraft:glowingobsidian", "minecraft:barrier",
 "minecraft:command_block", "minecraft:repeating_command_block", "minecraft:chain_command_blocks", "minecraft:bedrock"];
-var illegalItems = [];
+var illegalItems = ["minecraft:spawn_egg"];
 
 //illegal entities patch
 events.entityCreated.on((ev)=>{
@@ -112,44 +112,44 @@ events.packetSend(MinecraftPacketIds.PlayStatus).on((pk, ni) => {
     }
 });
 
-let enchants = {
-    "0": "4",
-    "1": "4",
-    "2": "4",
-    "3": "4",
-    "4": "4",
-    "5": "3", //this is thorns. revert this to 3 if it no longer crashes servers
-    "6": "3",
-    "7": "3",
-    "8": "1",
-    "9": "5",
-    "10":"5",
-    "11":"5",
-    "12":"2",
-    "13":"2",
-    "14":"3",
-    "15":"5",
-    "16":"1",
-    "17":"3",
-    "18":"3",
-    "19":"5",
-    "20":"2",
-    "21":"1",
-    "22":"1",
-    "23":"3",
-    "24":"3",
-    "25":"3",
-    "26":"1",
-    "27":"1",
-    "28":"1",
-    "29":"5",
-    "30":"1",
-    "31":"3",
-    "32":"1",
-    "33":"1",
-    "34":"3",
-    "35":"3",
-    "36":"3"
+const enchants = {
+    0:  4,
+    1:  4,
+    2:  4,
+    3:  4,
+    4:  4,
+    5:  0, //this is thorns. revert this to 3 if it no longer crashes servers
+    6:  3,
+    7:  3,
+    8:  1,
+    9:  5,
+    10: 5,
+    11: 5,
+    12: 2,
+    13: 2,
+    14: 3,
+    15: 5,
+    16: 1,
+    17: 3,
+    18: 3,
+    19: 5,
+    20: 2,
+    21: 1,
+    22: 1,
+    23: 3,
+    24: 3,
+    25: 3,
+    26: 1,
+    27: 1,
+    28: 1,
+    29: 5,
+    30: 1,
+    31: 3,
+    32: 1,
+    33: 1,
+    34: 3,
+    35: 3,
+    36: 3
 }
 
 //32k patch. First version by DAMcraft. Improved by thesoulblazer. Then re-made to all items by DAMcraft and modified to the nbt branch
@@ -164,8 +164,7 @@ events.playerInventoryChange.on((ev)=>{
                     let enchantment = tmp as CompoundTag;
                     let lvl = (enchantment.get('lvl') as ShortTag).data;
                     let id = (enchantment.get('id') as ShortTag).data;
-                    let string_id = "" + id;
-                    let allowed_lvl = enchants[string_id];
+                    let allowed_lvl = enchants[id as keyof typeof enchants];
                     if (allowed_lvl < lvl) {
                         console.log("Reverted an overenchanted item");
                         enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
@@ -252,7 +251,7 @@ events.packetBefore(MinecraftPacketIds.Text).on((ev, ni, packetid) =>{
     var curr = currentmessages.get(ni);
     if (curr == undefined) return;
     currentmessages.set(ni, msg);
-    if (curr == msg){
+    if (curr == msg || msg.includes("minecraft bedrock utility mod")){
         var currpoints = points.get(ni);
         if (currpoints == undefined) return;
         if (currpoints >= 5){
