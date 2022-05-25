@@ -43,11 +43,10 @@ if (!fs.existsSync("./configs/Discord-Chatter/config.json") ) {
 
 // BDSX Imports
 import { MinecraftPacketIds } from "bdsx/bds/packetids";
-import { bedrockServer } from "./bdsx";
+import { bedrockServer } from "bdsx/launcher";
 import { command } from "bdsx/command";
 import { events } from "bdsx/event";
 import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
-import { serverInstance } from "bdsx/bds/server";
 import { ServerPlayer } from "bdsx/bds/player";
 
 // Discord Bot Requirements
@@ -88,7 +87,7 @@ bot.on('message', (msg: { channel: { id: string; }; author: { bot: string | bool
     }
 });
 
-bot.on('disconnect', message => {
+bot.on('disconnect', () => {
     bot.destroy().then(() => bot.login(GetConfig("token")).catch((e: string) => {
         if (e == "Error: An invalid token was provided." || e == "Error: Incorrect login details were provided.") {
             console.log("\n[DiscordChatter] Error in Discord.js: Invalid Login Token.");
@@ -118,8 +117,6 @@ events.serverOpen.on(() => {
     console.log("the event started");
     serverAlive = true;
 });
-// BDS Shutdown
-events.serverStop.on(() => serverAlive = false);
 
 // Player Join
 events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetId) => {
@@ -318,7 +315,7 @@ function SendToGame(message: string, user: string, orig_msg: any) {
             return;
         }
         var found_user = false;
-        serverInstance.getPlayers().forEach(usr => {
+        bedrockServer.serverInstance.getPlayers().forEach(usr => {
             if (usr.getName() == verify_me){
                 found_user = true;
                 bedrockServer.executeCommand("tellraw "+usr.getName().replace("\"", "\'").replace("\\","\\\\")+" { \"rawtext\" : [ { \"text\" : \"§9"+orig_msg.author.tag+"§r wants to verify their Discord account with your Minecraft account. Type §2/verify§r to verify.\" } ] }", false);
