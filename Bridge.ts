@@ -3,6 +3,7 @@ import { version as currVersion } from "./package.json";
 const fs = require('fs');
 const path = require('path');
 var players_to_verified: string[] = [];
+var serverShutdown = false;
 // Create config json if it doesn't exist
 if (!fs.existsSync("./configs/Discord-Chatter/config.json") ) {
     const defaultConfig = {
@@ -88,6 +89,7 @@ bot.on('message', (msg: { channel: { id: string; }; author: { bot: string | bool
 });
 
 bot.on('disconnect', () => {
+    if (serverShutdown) return;
     bot.destroy().then(() => bot.login(GetConfig("token")).catch((e: string) => {
         if (e == "Error: An invalid token was provided." || e == "Error: Incorrect login details were provided.") {
             console.log("\n[DiscordChatter] Error in Discord.js: Invalid Login Token.");
@@ -130,9 +132,8 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
         const links = require(path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json"));
         const xuid = cert.getXuid();
         const username = cert.getId();
-
-        links.xuids[xuid] = username
-        fs.writeFileSync("./configs/Discord-Chatter/links.json", JSON.stringify(links, null, 2))
+        links.xuids[xuid] = username;
+        fs.writeFileSync("./configs/Discord-Chatter/links.json", JSON.stringify(links, null, 2));
         if (username) connectionList.set(networkIdentifier, username);
         if ( GetConfig("EnableJoinLeaveMessages") == true ) {
         // Player Join (Extract Username)
@@ -186,6 +187,7 @@ events.serverClose.on(()=>{
         SendToDiscord("Server Shutting Down!", "Server");
         console.log('[DiscordChatter] Shutting Down.');
     }
+    serverShutdown = true;
     bot.destroy(); // Node doesn't shutdown w/o this; It just freezes
 });
 
