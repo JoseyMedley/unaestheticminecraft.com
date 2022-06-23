@@ -9,7 +9,7 @@ import { AbstractClass, nativeClass, NativeClass, nativeField, NativeStruct } fr
 import { bin64_t, bool_t, CxxString, float32_t, int32_t, int64_as_float_t, uint8_t } from "../nativetype";
 import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
 import type { BlockSource } from "./block";
-import { Vec2, Vec3 } from "./blockpos";
+import { BlockPos, Vec2, Vec3 } from "./blockpos";
 import type { CommandPermissionLevel } from "./command";
 import type { Dimension } from "./dimension";
 import { MobEffect, MobEffectIds, MobEffectInstance } from "./effects";
@@ -207,7 +207,7 @@ export class ActorDefinitionIdentifier extends NativeClass {
     static constructWith(type:string|ActorType):ActorDefinitionIdentifier {
         abstract();
     }
-    /**@deprecated use {@link constructWith()} instead*/
+    /** @deprecated use {@link constructWith()} instead*/
     static create(type:string|ActorType):ActorDefinitionIdentifier {
         return ActorDefinitionIdentifier.constructWith(type as any);
     }
@@ -446,7 +446,7 @@ export class EntityContextBase extends AbstractClass {
     isValid():boolean {
         abstract();
     }
-    /**@deprecated use {@link isValid()} instead */
+    /** @deprecated use {@link isValid()} instead */
     isVaild(): boolean {
         return this.isValid();
     }
@@ -1133,6 +1133,27 @@ export class Actor extends AbstractClass {
      * Removes the entity
      */
     remove(): void {
+        abstract();
+    }
+
+    /**
+     * Returns whether the actor is angry
+     */
+    isAngry(): boolean{
+        abstract();
+    }
+
+    /**
+     * Find actor's attack target
+     */
+    findAttackTarget(): Actor{
+        abstract();
+    }
+
+    /**
+     * Get actor targeting block
+     */
+    getBlockTarget(): BlockPos{
         abstract();
     }
 }

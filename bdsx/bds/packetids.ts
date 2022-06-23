@@ -2,7 +2,7 @@
 /**
  * referred from: https://github.com/NiclasOlofsson/MiNET/blob/master/src/MiNET/MiNET/Net/MCPE%20Protocol%20Documentation.md
  */
-export enum MinecraftPacketIds {//int32_t
+export enum MinecraftPacketIds {// int32_t
 	Login = 0x01,
 	PlayStatus = 0x02,
 	ServerToClientHandshake = 0x03,
@@ -79,7 +79,9 @@ export enum MinecraftPacketIds {//int32_t
 	SimpleEvent = 0x40,
 	TelemetryEvent = 0x41,
 	SpawnExperienceOrb = 0x42,
+	/** @deprecated Use ClientboundMapItemData instead, to match to official class name*/
 	MapItemData = 0x43,
+	ClientboundMapItemData = 0x43,
 	MapInfoRequest = 0x44,
 	RequestChunkRadius = 0x45,
 	ChunkRadiusUpdated = 0x46,
@@ -197,6 +199,13 @@ export enum MinecraftPacketIds {//int32_t
 	PlayerStartItemCooldown = 0xb0,
 	ScriptMessage = 0xb1,
 	CodeBuilderSource = 0xb2,
+	TickingAreasLoadStatus = 0xb3,
+	DimensionData = 0xb4,
+	AgentActionEvent = 0xb5,
+	ChangeMobProperty = 0xb6,
+	LessonProgress = 0xb7,
+	RequestAbility = 0xb8,
+	RequestPermissions =0xb9,
 	ToastRequest = 0xba,
 }
 (MinecraftPacketIds as any).__proto__ = null;
