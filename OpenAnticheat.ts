@@ -9,13 +9,15 @@ import { BlockPos } from "bdsx/bds/blockpos";
 import { CxxVector } from "bdsx/cxxvector";
 import { int16_t } from "bdsx/nativetype";
 import { bedrockServer } from "bdsx/launcher";
+import { hex } from "bdsx/util";
+import { PlayerActionPacket } from "bdsx/bds/packets";
 console.log("Open Anticheat loaded");
 
 // illegal entities and blocks
-var illegalEntities = ["minecraft:ender_dragon", "minecraft:phantom", "minecraft:elder_guardian_ghost", "minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard"];
+var illegalEntities = ["minecraft:ender_dragon", "minecraft:phantom", "minecraft:elder_guardian_ghost", "minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard", "minecraft:command_block_minecart"];
 var illegalBlocks = ["tile:invisiblebedrock", "minecraft:end_portal_frame", "minecraft:mob_spawner", "minecraft:allow", "minecraft:deny",
 "minecraft:border_block", "minecraft:structure_void", "minecraft:camera", "minecraft:structure_block", "minecraft:nether_reactor", "minecraft:glowingobsidian", "minecraft:barrier",
-"minecraft:command_block", "minecraft:repeating_command_block", "minecraft:chain_command_blocks", "minecraft:bedrock"];
+"minecraft:command_block", "minecraft:repeating_command_block", "minecraft:chain_command_blocks", "minecraft:bedrock", "minecraft:jigsaw"];
 var illegalItems = ["minecraft:spawn_egg"];
 
 //illegal entities patch
@@ -155,6 +157,7 @@ const enchants = {
 //32k patch. First version by DAMcraft. Improved by thesoulblazer. Then re-made to all items by DAMcraft and modified to the nbt branch
 events.playerInventoryChange.on((ev)=>{
     let player = ev.player;
+    if (!player) return; 
     player.getInventory().container.getSlots().toArray().forEach(item => {
         if (item.getUserData() != null){
             let ud = item.getUserData();
@@ -267,4 +270,45 @@ events.networkDisconnected.on(ni => {
     names.delete(ni);
     currentmessages.delete(ni);
     points.delete(ni);
+});
+
+events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => {
+    ptr.move(1);
+    const data = [];
+    if (ptr.readVarInt()) {
+        for (let i = 0; i < ptr.readVarUint(); i++) {
+            const id = ptr.readUint8();
+            const slots = [];
+            for (let i = 0; i < ptr.readVarUint(); i++) {
+                slots.push(ptr.readUint8());
+            }
+            data.push({
+                id,
+                slots,
+            });
+        }
+        if (data.length >= 3) {
+            if ((data[0].id === 28) &&
+                (data[1].id === 159) && (data[1].slots[0] === 9) &&
+                (data[2].slots.length === 0)) {
+                    var playername = ni.getActor()?.getName();
+                    if (playername == undefined) return CANCEL;
+                    console.log(playername + " used fake inventory transaction packets");
+                    bedrockServer.serverInstance.disconnectClient(ni, `I don't .give a shit`);
+                    return CANCEL;
+            }
+        }
+    }
+});
+
+events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => {
+    const data = hex(ptr.readBuffer(size));
+    const index = data.indexOf("02 9F 8D 06 09");
+    if (index !== -1) {
+        var playername = ni.getActor()?.getName();
+        if (playername == undefined) return CANCEL;
+        console.log(playername + " used fake inventory transaction packets");
+        bedrockServer.serverInstance.disconnectClient(ni, `I don't .give a shit`);
+        return CANCEL;
+    }
 });
