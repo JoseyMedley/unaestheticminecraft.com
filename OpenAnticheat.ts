@@ -4,7 +4,7 @@ import { CANCEL } from "./bdsx/common"
 import { MinecraftPacketIds } from "./bdsx/bds/packetids";
 import { events } from "./bdsx/event";
 import { ServerPlayer } from "bdsx/bds/player";
-import { CompoundTag, ListTag, ShortTag } from "bdsx/bds/nbt";
+import { ByteTag, CompoundTag, ListTag, ShortTag } from "bdsx/bds/nbt";
 import { BlockPos } from "bdsx/bds/blockpos";
 import { CxxVector } from "bdsx/cxxvector";
 import { int16_t } from "bdsx/nativetype";
@@ -154,10 +154,10 @@ const enchants = {
     36: 3
 }
 
-//32k patch. First version by DAMcraft. Improved by thesoulblazer. Then re-made to all items by DAMcraft and modified to the nbt branch
+//32k patch by DAMcraft. Improved with keep on death patch by thesoulblazer
 events.playerInventoryChange.on((ev)=>{
     let player = ev.player;
-    if (!player) return; 
+    if (!player) return;
     player.getInventory().container.getSlots().toArray().forEach(item => {
         if (item.getUserData() != null){
             let ud = item.getUserData();
@@ -173,6 +173,12 @@ events.playerInventoryChange.on((ev)=>{
                         enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
                     }
                 });
+            }
+            if (ud.get("minecraft:keep_on_death") != null){
+                var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
+                if (bytetag.data == 1){
+                    bytetag.data = 0;
+                }
             }
         }
     });
@@ -272,6 +278,7 @@ events.networkDisconnected.on(ni => {
     points.delete(ni);
 });
 
+//updated .give patch from aniketos
 events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => {
     ptr.move(1);
     const data = [];
