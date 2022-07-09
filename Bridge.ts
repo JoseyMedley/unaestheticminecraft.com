@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 var players_to_verified: string[] = [];
 var serverShutdown = false;
+var playerlogchanid = "995024446005981205";
 // Create config json if it doesn't exist
 if (!fs.existsSync("./configs/Discord-Chatter/config.json") ) {
     const defaultConfig = {
@@ -101,7 +102,6 @@ bot.on('disconnect', () => {
         }
     }));
 });
-
 // BDSX Events
 // These are BDS defined events that should be tracked or a message should be sent on.
 
@@ -136,8 +136,9 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
         fs.writeFileSync("./configs/Discord-Chatter/links.json", JSON.stringify(links, null, 2));
         if (username) connectionList.set(networkIdentifier, username);
         if ( GetConfig("EnableJoinLeaveMessages") == true ) {
-        // Player Join (Extract Username)
-        SendToDiscordEvent(username + " has joined the server!");
+            // Player Join (Extract Username)
+            SendToDiscordEvent(username + " has joined the server!");
+            SendToPlayerLog(username + " has joined the server!");
         }
     }
 });
@@ -152,13 +153,13 @@ events.networkDisconnected.on(networkIdentifier => {
         // Player Leave (Extract Username)
         if(id != undefined){
             SendToDiscordEvent(id + " has left the server!");
+            SendToPlayerLog(id + " has left the server!");
         }
     }
-
 });
 
 // player death
-events.packetSend(MinecraftPacketIds.Text).on(ev => {
+events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
     if (ev.needsTranslation && ev.message.startsWith("death")){
         let msg = ev.message;
         let params = ev.params;
@@ -170,7 +171,10 @@ events.packetSend(MinecraftPacketIds.Text).on(ev => {
         if (params.get(0) != null && params.get(0).startsWith("%")) {return}
         if (params.get(1) != null && params.get(1).startsWith("%")) {return}
         if (params.get(2) != null && params.get(3).startsWith("%")) {return}
-        SendToDiscordEvent(deathmsgs[msg].replace("%1", params.get(0)).replace("%2", params.get(1)).replace("%3", params.get(2)));
+        var chatmessage = deathmsgs[msg].replace("%1", params.get(0)).replace("%2", params.get(1)).replace("%3", params.get(2));
+        var playername = chatmessage.split(" ")[0];
+        if (playername != ni.getActor()?.getName()) return;
+        SendToDiscordEvent(chatmessage);
     }
 });
 
@@ -195,6 +199,32 @@ events.serverClose.on(()=>{
 
 // Message Functions
 // These functions facilitate communication between Discord and the Server.
+
+function SendToPlayerLog(message: string) {
+    if ( GetConfig("BotEnabled") == true ) {
+        const chan = bot.channels.get(playerlogchanid);
+        try {
+            chan.send(message).catch((e: any) => {
+                if (e == "DiscordAPIError: Missing Permissions") {
+                    console.log("[DiscordChatter] Error in discord.js: Missing permissions.");
+                    console.log("[DiscordChatter] Ensure the bot is in your server AND it has send permissions in the relevant channel!");
+                } else {
+                    console.log("[DiscordChatter] Uncaught Error! Please report this.");
+                    throw e;
+                }
+            });
+        } catch (e) {
+            if (e == "TypeError: Unable to get property 'send' of undefined or null reference") {
+                console.log("\n[DiscordChatter] Failed to send message to the Discord Server!");
+                console.log("[DiscordChatter] Either your Token is incorrect, or the Channel ID is invalid.");
+                console.log("[DiscordChatter] Please double check the related values and fix them.\n");
+            } else {
+                console.log("[DiscordChatter] Uncaught Error! Please report this.");
+                throw e;
+            }
+        }
+    }
+}
 
 function SendToDiscord(message: string, user: string) {
     if ( GetConfig("BotEnabled") == true ) {
