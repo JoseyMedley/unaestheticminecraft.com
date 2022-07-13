@@ -72,11 +72,13 @@ events.packetBefore(MinecraftPacketIds.PlayerAuthInput).on((pk, ni) => {
     }
 });
 
+//disconnect DoS patch
 events.packetRaw(MinecraftPacketIds.Disconnect).on(ev => {
     console.log("Disconnect DoS attempted");
     return CANCEL;
 });
 
+//overflow DoS patch
 events.packetRaw(MinecraftPacketIds.ClientCacheBlobStatus).on(ptr =>{
     ptr.readVarUint();
     if (ptr.readVarUint() >= 0xfff){
@@ -207,6 +209,7 @@ console.log = function() {
     logBackup.apply(console, arguments);
 };
 
+//nested shulker patch
 events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
     let x = ev.pos.x;
     let y = ev.pos.y;
@@ -254,6 +257,8 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
     }
 });
 
+
+//shitty antispam
 events.packetBefore(MinecraftPacketIds.Text).on((ev, ni, packetid) =>{
     if (ni == undefined) return;
     var msg = ev.message;
