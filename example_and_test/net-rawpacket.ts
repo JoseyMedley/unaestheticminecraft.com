@@ -1,10 +1,10 @@
 
 // Parse raw packet
-// referenced from https://github.com/pmmp/PocketMine-MP/blob/stable/src/pocketmine/network/mcpe/protocol/MovePlayerPacket.php
 import { MinecraftPacketIds } from "bdsx/bds/packetids";
 import { bin } from "bdsx/bin";
 import { events } from "bdsx/event";
 import { RawPacket } from "bdsx/rawpacket";
+import { Tester } from "bdsx/tester";
 
 export let recentSentPacketId:MinecraftPacketIds|null = null;
 export function getRecentSentPacketId():MinecraftPacketIds|null {
@@ -13,7 +13,9 @@ export function getRecentSentPacketId():MinecraftPacketIds|null {
     return out;
 }
 
+// referenced from https://github.com/pmmp/PocketMine-MP/blob/stable/src/pocketmine/network/mcpe/protocol/MovePlayerPacket.php
 events.packetRaw(MinecraftPacketIds.MovePlayer).on((ptr, size, ni)=>{
+    if (!Tester.isPassed()) return; // logging if test is passed
     console.log(`Packet Id: ${ptr.readVarUint()&0x3ff}`);
 
     const runtimeId = ptr.readVarBin();
