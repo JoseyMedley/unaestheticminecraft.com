@@ -97,6 +97,11 @@ export enum CreativeItemCategory {
     Uncategorized,
 }
 
+export enum HandSlot {
+    Mainhand = 0,
+    Offhand = 1,
+}
+
 export class Item extends NativeClass {
     /**
      * Returns whether the item is allowed to be used in the offhand slot
@@ -406,7 +411,14 @@ export class ItemStackBase extends NativeClass {
     canDestroySpecial(block: Block): boolean{
         abstract();
     }
-    hurtAndBreak(count: number, actor: Actor): boolean{
+    /**
+     * Hurts the item's durability.
+     * Breaks the item if its durability reaches 0 or less.
+     * @param count delta damage
+     * @param owner owner of the item, if not null, server will send inventory.
+     * @returns returns whether hurt successfully or not
+     */
+    hurtAndBreak(count: number, owner: Actor|null = null): boolean{
         abstract();
     }
 }

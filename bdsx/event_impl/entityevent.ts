@@ -1,7 +1,7 @@
 import { Actor, ActorDamageCause, ActorDamageSource, DimensionId, ItemActor } from "../bds/actor";
 import { BlockPos, Vec3 } from "../bds/blockpos";
 import { HitResult, ProjectileComponent, SplashPotionEffectSubcomponent } from "../bds/components";
-import { ComplexInventoryTransaction, ContainerId, InventorySource, InventorySourceType, ItemStack } from "../bds/inventory";
+import { ComplexInventoryTransaction, ContainerId, HandSlot, InventorySource, InventorySourceType, ItemStack, ItemStackBase } from "../bds/inventory";
 import { BedSleepingResult } from "../bds/level";
 import { ServerNetworkHandler } from "../bds/networkidentifier";
 import { MinecraftPacketIds } from "../bds/packetids";
@@ -232,6 +232,10 @@ export class ProjectileHitEvent {
     constructor(public projectile: Actor, public victim: Actor | null, public result: HitResult) {}
 }
 
+export class EntityCarriedItemChangedEvent {
+    constructor(public entity: Actor, public oldItemStack: ItemStackBase, public newItemStack: ItemStackBase, public handSlot: HandSlot) {}
+}
+
 function onPlayerJump(player: Player):void {
     const event = new PlayerJumpEvent(player);
     events.playerJump.fire(event);
@@ -286,7 +290,7 @@ function onEntityHurt(entity: Actor, actorDamageSource: ActorDamageSource, damag
     if (canceled) {
         return false;
     }
-    return _onEntityHurt(event.entity, event.damageSource, event.damage, knock, ignite);
+    return _onEntityHurt(event.entity, event.damageSource, event.damage, event.knock, event.ignite);
 }
 const _onEntityHurt = procHacker.hooking('?hurt@Actor@@QEAA_NAEBVActorDamageSource@@M_N1@Z', bool_t, null, Actor, ActorDamageSource, float32_t, bool_t, bool_t)(onEntityHurt);
 
@@ -295,7 +299,7 @@ function onEntityHealthChange(attributeDelegate: NativePointer, oldHealth:number
     const event = new EntityHeathChangeEvent(actor, oldHealth, newHealth);
     events.entityHealthChange.fire(event);
     attributeDelegate.setPointer(event.entity, 0x20);
-    return _onEntityHealthChange(attributeDelegate, oldHealth, newHealth, attributeBuffInfo);
+    return _onEntityHealthChange(attributeDelegate, event.oldHealth, event.newHealth, attributeBuffInfo);
 }
 const _onEntityHealthChange = procHacker.hooking('?change@HealthAttributeDelegate@@UEAAMMMAEBVAttributeBuff@@@Z', bool_t, null, NativePointer, float32_t, float32_t, VoidPointer)(onEntityHealthChange);
 
@@ -347,7 +351,7 @@ const _onEntityStopRiding = procHacker.hooking('?stopRiding@Actor@@UEAAX_N00@Z',
 function onEntitySneak(actorEventCoordinator:VoidPointer, entity:Actor, isSneaking:boolean): void {
     const event = new EntitySneakEvent(entity, isSneaking);
     events.entitySneak.fire(event);
-    return _onEntitySneak(actorEventCoordinator, entity, isSneaking);
+    return _onEntitySneak(actorEventCoordinator, entity, event.isSneaking);
 }
 const _onEntitySneak = procHacker.hooking('?sendActorSneakChanged@ActorEventCoordinator@@QEAAXAEAVActor@@_N@Z', void_t, null, VoidPointer, Actor, bool_t)(onEntitySneak);
 
@@ -418,7 +422,7 @@ function onPlayerInventoryChange(player:Player, container:VoidPointer, slot:numb
     events.playerInventoryChange.fire(event);
     decay(oldItemStack);
     decay(newItemStack);
-    return _onPlayerInventoryChange(event.player, container, slot, event.oldItemStack, event.newItemStack, unknown);
+    return _onPlayerInventoryChange(event.player, container, event.slot, event.oldItemStack, event.newItemStack, unknown);
 }
 const _onPlayerInventoryChange = procHacker.hooking("?inventoryChanged@Player@@UEAAXAEAVContainer@@HAEBVItemStack@@1_N@Z", void_t, null, Player, VoidPointer, int32_t, ItemStack, ItemStack, bool_t)(onPlayerInventoryChange);
 
@@ -452,7 +456,7 @@ function onPlayerPickupItem(player:Player, itemActor:ItemActor, orgCount:number,
     if (canceled) {
         return false;
     }
-    return _onPlayerPickupItem(event.player, itemActor, orgCount, favoredSlot);
+    return _onPlayerPickupItem(event.player, event.itemActor, orgCount, favoredSlot);
 }
 const _onPlayerPickupItem = procHacker.hooking("?take@Player@@QEAA_NAEAVActor@@HH@Z", bool_t, null, Player, ItemActor, int32_t, int32_t)(onPlayerPickupItem);
 
@@ -525,5 +529,22 @@ const onProjectileHit = procHacker.hooking(
     events.projectileHit.fire(event);
     decay(projectileComponent);
     decay(result);
-    return onProjectileHit(projectileComponent, projectile, result);
+    return onProjectileHit(projectileComponent, event.projectile, event.result);
+});
+
+const sendActorCarriedItemChanged = procHacker.hooking(
+    "?sendActorCarriedItemChanged@ActorEventCoordinator@@QEAAXAEAVActor@@AEBVItemInstance@@1W4HandSlot@@@Z",
+    void_t,
+    null,
+    VoidPointer, // this, ActorEventCoordinator
+    Actor,
+    ItemStackBase, // Actually ItemInstance which extends ItemStackBase without additional fields
+    ItemStackBase,
+    int32_t,
+)((self, entity, oldItemStack, newItemStack, handSlot) => {
+    const event = new EntityCarriedItemChangedEvent(entity, oldItemStack, newItemStack, handSlot);
+    events.entityCarriedItemChanged.fire(event);
+    decay(oldItemStack);
+    decay(newItemStack);
+    return sendActorCarriedItemChanged(self, entity, oldItemStack, newItemStack, handSlot);
 });
