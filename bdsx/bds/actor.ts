@@ -305,7 +305,7 @@ export enum ActorFlags {
      * @deprecated typo.
      */
     Ignit0ed,
-    Ignited,
+    Ignited = 0xa,
     Baby,
     Converting,
     Critical,
@@ -1231,6 +1231,20 @@ export class Actor extends AbstractClass {
     }
 
     isInvulnerableTo(damageSource: ActorDamageSource): boolean {
+        abstract();
+    }
+
+    canSee(target: Actor): boolean;
+    canSee(target: Vec3): boolean;
+    canSee(target: Actor | Vec3): boolean {
+        abstract();
+    }
+
+    isValidTarget(source: Actor|null = null): boolean {
+        abstract();
+    }
+
+    canAttack(target: Actor | null, unknown = false): boolean {
         abstract();
     }
 }

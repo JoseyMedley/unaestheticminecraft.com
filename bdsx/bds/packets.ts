@@ -17,6 +17,8 @@ import type { GameType, Player } from "./player";
 import { DisplaySlot, ObjectiveSortOrder, ScoreboardId } from "./scoreboard";
 import { SerializedSkin } from "./skin";
 
+const CxxVector$string = CxxVector.make(CxxString);
+
 @nativeClass(null)
 export class LoginPacket extends Packet {
     @nativeField(int32_t)
@@ -170,7 +172,7 @@ export class TextPacket extends Packet {
     name:CxxString;
     @nativeField(CxxString)
     message:CxxString;
-    @nativeField(CxxVector.make(CxxString))
+    @nativeField(CxxVector$string)
     params:CxxVector<CxxString>;
     @nativeField(bool_t, 0x90)
     needsTranslation:bool_t;
@@ -1045,9 +1047,9 @@ class AvailableCommandsEnumData extends AbstractClass{
 
 @nativeClass(null)
 export class AvailableCommandsPacket extends Packet {
-    @nativeField(CxxVector.make(CxxString))
+    @nativeField(CxxVector$string)
     readonly enumValues:CxxVector<CxxString>;
-    @nativeField(CxxVector.make(CxxString))
+    @nativeField(CxxVector$string)
     readonly postfixes:CxxVector<CxxString>;
     @nativeField(CxxVector.make(AvailableCommandsEnumData))
     readonly enums:CxxVector<AvailableCommandsEnumData>;
@@ -1711,7 +1713,7 @@ export class ItemStackRequestActionTransferBase extends ItemStackRequestAction {
 export class ItemStackRequestData extends AbstractClass {
     @nativeField(int32_t, 0x08)
     clientRequestId:int32_t;
-    @nativeField(CxxVector.make(CxxString), 0x10)
+    @nativeField(CxxVector$string, 0x10)
     stringsToFilter:CxxVector<CxxString>;
     @nativeField(CxxVector.make(ItemStackRequestAction.ref()))
     actions:CxxVector<ItemStackRequestAction>;
@@ -2021,6 +2023,31 @@ export class ToastRequestPacket extends Packet {
     body: CxxString;
 }
 
+@nativeClass(null)
+export class UpdateAbilitiesPacket extends Packet {
+    // unknown
+}
+
+@nativeClass(null)
+export class UpdateAdventureSettingsPacket extends Packet {
+    // unknown
+}
+
+@nativeClass()
+export class DeathInfoPacket extends Packet {
+    /**
+     * First: text
+     * Second: params for translating
+     */
+    @nativeField(CxxPair.make(CxxString, CxxVector$string))
+    info: CxxPair<CxxString, CxxVector<CxxString>>;
+}
+
+@nativeClass(null)
+export class EditorNetworkPacket extends Packet {
+    // unknown
+}
+
 export const PacketIdToType = {
     0x01: LoginPacket,
     0x02: PlayStatusPacket,
@@ -2206,6 +2233,10 @@ export const PacketIdToType = {
     0xb8: RequestAbilityPacket,
     0xb9: RequestPermissionsPacket,
     0xba: ToastRequestPacket,
+    0xbb: UpdateAbilitiesPacket,
+    0xbc: UpdateAdventureSettingsPacket,
+    0xbd: DeathInfoPacket,
+    0xbe: EditorNetworkPacket,
 };
 export type PacketIdToType = {[key in keyof typeof PacketIdToType]:InstanceType<typeof PacketIdToType[key]>};
 

@@ -458,6 +458,23 @@ Actor.prototype.isAngry = procHacker.js('?isAngry@Actor@@QEBA_NXZ', bool_t, {thi
 Actor.prototype.getBlockTarget = procHacker.js('?getBlockTarget@Actor@@QEBA?AVBlockPos@@XZ', BlockPos, {this: Actor});
 Actor.prototype.isAttackableGamemode = procHacker.jsv("??_7Actor@@6B@", "?isAttackableGamemode@Actor@@UEBA_NXZ", bool_t, {this:Actor});
 Actor.prototype.isInvulnerableTo = procHacker.jsv("??_7Actor@@6B@", "?isInvulnerableTo@Actor@@UEBA_NAEBVActorDamageSource@@@Z", bool_t, {this:Actor}, ActorDamageSource);
+const Actor$canSeeEntity = procHacker.js("?canSee@Actor@@UEBA_NAEBV1@@Z", bool_t, null, Actor, Actor);
+const Actor$canSeePos = procHacker.js("?canSee@Actor@@UEBA_NAEBVVec3@@@Z", bool_t, null, Actor, Vec3);
+Actor.prototype.canSee = function (target) {
+    if (target instanceof Actor) {
+        return Actor$canSeeEntity(this, target);
+    }else {
+        return Actor$canSeePos(this, target);
+    }
+};
+const Actor$isValidTarget = procHacker.jsv("??_7ServerPlayer@@6B@", "?isValidTarget@ServerPlayer@@UEBA_NPEAVActor@@@Z", bool_t, {this:Actor}, Actor);
+Actor.prototype.isValidTarget = function (source = null) {
+    return Actor$isValidTarget.call(this, source);
+};
+const Actor$canAttack = procHacker.jsv("??_7Actor@@6B@", "?canAttack@Actor@@UEBA_NPEAV1@_N@Z", bool_t, {this:Actor}, Actor, bool_t);
+Actor.prototype.canAttack = function (target, unknown = false) {
+    return Actor$canAttack.call(this, target, unknown);
+};
 
 Mob.prototype.knockback = procHacker.jsv('??_7Mob@@6B@', '?knockback@Mob@@UEAAXPEAVActor@@HMMMMM@Z', void_t, {this:Mob}, Actor, int32_t, float32_t, float32_t, float32_t, float32_t, float32_t);
 Mob.prototype.getSpeed = procHacker.js("?getSpeed@Mob@@UEBAMXZ", float32_t, {this:Mob});
@@ -465,7 +482,6 @@ Mob.prototype.setSpeed = procHacker.js('?setSpeed@Mob@@UEAAXM@Z', void_t, {this:
 Mob.prototype.isSprinting = procHacker.js("?isSprinting@Mob@@QEBA_NXZ", bool_t, {this:Mob});
 Mob.prototype.sendArmorSlot = procHacker.js("?sendArmorSlot@Mob@@QEAAXW4ArmorSlot@@@Z", void_t, {this:Mob}, uint32_t);
 Mob.prototype.setSprinting = procHacker.js("?setSprinting@Mob@@UEAAX_N@Z", void_t, {this:Mob}, bool_t);
-Mob.prototype.kill = procHacker.js("?kill@Mob@@UEAAXXZ", void_t, {this:Mob});
 Mob.prototype.isAlive = procHacker.js('?isAlive@Mob@@UEBA_NXZ', bool_t, {this:Mob});
 (Mob.prototype as any)._sendInventory = procHacker.js('?sendInventory@Mob@@UEAAX_N@Z', void_t, {this:Mob}, bool_t);
 (Mob.prototype as any).hurtEffects_ = procHacker.jsv('??_7Mob@@6B@', '?hurtEffects@Mob@@UEAAXAEBVActorDamageSource@@M_N1@Z', bool_t, {this:Mob}, ActorDamageSource, int32_t, bool_t, bool_t);
@@ -972,8 +988,10 @@ ItemStackBase.prototype.toString = procHacker.jsv('??_7ItemStackBase@@6B@', '?to
 ItemStackBase.prototype.toDebugString = procHacker.jsv('??_7ItemStackBase@@6B@', '?toDebugString@ItemStackBase@@UEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ', CxxString, {this:ItemStackBase,structureReturn:true});
 
 ItemStackBase.prototype.remove = procHacker.js("?remove@ItemStackBase@@QEAAXH@Z", void_t, {this:ItemStackBase}, int32_t);
+ItemStackBase.prototype.addAmount = procHacker.js("?add@ItemStackBase@@QEAAXH@Z", void_t, { this: ItemStackBase }, int32_t);
 ItemStackBase.prototype.setAuxValue = procHacker.js('?setAuxValue@ItemStackBase@@QEAAXF@Z', void_t, {this:ItemStackBase}, int16_t);
 ItemStackBase.prototype.getAuxValue = procHacker.js('?getAuxValue@ItemStackBase@@QEBAFXZ', int16_t, {this:ItemStackBase});
+ItemStackBase.prototype.isValidAuxValue = procHacker.js("?isValidAuxValue@ItemStackBase@@QEBA_NH@Z", bool_t, {this:ItemStackBase});
 ItemStackBase.prototype.getMaxStackSize = procHacker.js('?getMaxStackSize@ItemStackBase@@QEBAEXZ', int32_t, {this:ItemStackBase});
 ItemStackBase.prototype.getId = procHacker.js("?getId@ItemStackBase@@QEBAFXZ", int16_t, {this:ItemStackBase});
 ItemStackBase.prototype.getRawNameId = procHacker.js("?getRawNameId@ItemStackBase@@QEBA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ", CxxString, {this:ItemStackBase, structureReturn: true});
@@ -1120,6 +1138,7 @@ BlockLegacy.prototype.getDefaultState = procHacker.js("?getDefaultState@BlockLeg
 BlockLegacy.prototype.tryGetStateFromLegacyData = procHacker.js("?tryGetStateFromLegacyData@BlockLegacy@@QEBAPEBVBlock@@G@Z", Block, {this:BlockLegacy}, uint16_t);
 BlockLegacy.prototype.use = procHacker.jsv('??_7JukeboxBlock@@6B@', '?use@JukeboxBlock@@UEBA_NAEAVPlayer@@AEBVBlockPos@@E@Z', bool_t, {this:BlockLegacy}, Player, BlockPos, uint8_t);
 BlockLegacy.prototype.getSilkTouchedItemInstance = procHacker.js('?getSilkTouchItemInstance@BlockLegacy@@UEBA?AVItemInstance@@AEBVBlock@@@Z', ItemStack, {this: BlockLegacy, structureReturn: true}, Block);
+BlockLegacy.prototype.getDestroySpeed = procHacker.js('?getDestroySpeed@BlockLegacy@@IEBAMXZ', float32_t, {this: BlockLegacy});
 
 (Block.prototype as any)._getName = procHacker.js("?getName@Block@@QEBAAEBVHashedString@@XZ", HashedString, {this:Block});
 Block.create = function(blockName:string, data:number = 0):Block|null {
@@ -1167,6 +1186,7 @@ Block.prototype.getExplosionResistance = function (actor: Actor|null = null): nu
 Block.prototype.getComparatorSignal = procHacker.js('?getComparatorSignal@Block@@QEBAHAEAVBlockSource@@AEBVBlockPos@@E@Z', int32_t, {this: Block}, BlockSource, BlockPos, uint8_t);
 Block.prototype.getDirectSignal = procHacker.js('?getDirectSignal@Block@@QEBAHAEAVBlockSource@@AEBVBlockPos@@H@Z', int32_t, {this: Block}, BlockSource, BlockPos, int32_t);
 Block.prototype.isSignalSource = procHacker.js('?isSignalSource@Block@@QEBA_NXZ', bool_t, {this: Block});
+Block.prototype.getDestroySpeed = procHacker.js('?getDestroySpeed@Block@@QEBAMXZ', float32_t, {this: Block});
 
 (BlockSource.prototype as any)._setBlock = procHacker.js("?setBlock@BlockSource@@QEAA_NHHHAEBVBlock@@HPEAVActor@@@Z", bool_t, {this:BlockSource}, int32_t, int32_t, int32_t, Block, int32_t, Actor);
 BlockSource.prototype.getBlock = procHacker.js("?getBlock@BlockSource@@UEBAAEBVBlock@@AEBVBlockPos@@@Z", Block, {this:BlockSource}, BlockPos);
