@@ -324,3 +324,7 @@ events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => 
         return CANCEL;
     }
 });
+
+events.sculkSensorActivate.on(ev => {
+    return CANCEL;
+});
