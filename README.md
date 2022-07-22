@@ -1,7 +1,7 @@
 # BDSX : BDS + node.js
 ![logo](bdsx/images/icon.png)  
 BDSX is a modification of Minecraft Bedrock Dedicated Server, supporting [node.js](https://nodejs.org/). Because it is based on the offical BDS software, it includes all the features of vanilla Minecraft, but includes other features as well, such as hooking functions and packets to change behavior. 
-This fork of BDSX adds in a basic anticheat along with some utilities and automatic backups. Before using this fork change the map name on line 19 of bdsx.bat to your map name
+This fork of BDSX adds in a full anticheat along with some utilities, automatic backups, and a discord bridge. Before using this fork change the map name on line 22 of bdsx.bat to your map name. You may also want to change the kick messages. The bridge requires additional configuration and has several bugs, and may likely be more trouble than it's worth especially if you have an unstable internet connection. 
 
 
 ## Features
