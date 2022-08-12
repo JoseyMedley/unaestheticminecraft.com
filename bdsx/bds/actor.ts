@@ -5,6 +5,7 @@ import type { CommandResult, CommandResultType } from "../commandresult";
 import { abstract } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
 import { CxxVector } from "../cxxvector";
+import { events } from '../event';
 import { mangle } from "../mangle";
 import { AbstractClass, nativeClass, NativeClass, nativeField, NativeStruct } from "../nativeclass";
 import { bin64_t, bool_t, CxxString, float32_t, int32_t, int64_as_float_t, uint8_t } from "../nativetype";
@@ -555,12 +556,12 @@ export class Actor extends AbstractClass {
         if (!this.isPlayer()) throw Error("this is not ServerPlayer");
         this.sendNetworkPacket(packet);
     }
-    protected _getArmorValue():number{
-        abstract();
-    }
+    /**
+     * Actually it's Mob::getArmorValue in BDS.
+     * @returns the entity's armor value (as an integer)
+     */
     getArmorValue(): number{
-        if(this.isItem()) return 0;
-        return this._getArmorValue();
+        return 0;
     }
     /**
      * Returns the Dimension instance of the entity currently in
@@ -635,7 +636,12 @@ export class Actor extends AbstractClass {
     /**
      * @alias instanceof ServerPlayer
      */
-    isPlayer(includeSimulatedPlayer: boolean = false):this is ServerPlayer {
+    isPlayer(): this is ServerPlayer;
+    /**
+     * @deprecated use Player.prototype.isSimulated instead. A SimulatedPlayer is a ServerPlayer anyway.
+     */
+    isPlayer(includeSimulatedPlayer: boolean): this is SimulatedPlayer;
+    isPlayer(includeSimulatedPlayer: boolean = false): this is ServerPlayer {
         abstract();
     }
     /**
@@ -1045,6 +1051,10 @@ export class Actor extends AbstractClass {
         abstract();
     }
 
+    getHandContainer(): SimpleContainer {
+        abstract();
+    }
+
     setOnFire(seconds:number):void {
         abstract();
     }
@@ -1263,6 +1273,12 @@ export class DistanceSortedActor extends NativeStruct {
 
 export class Mob extends Actor {
     /**
+     * @returns the entity's armor value (as an integer)
+     */
+    getArmorValue(): number{
+        abstract();
+    }
+    /**
      * Applies knockback to the mob
      */
     knockback(source: Actor | null, damage: int32_t, xd: float32_t, zd: float32_t, power: float32_t, height: float32_t, heightCap: float32_t): void {
@@ -1310,6 +1326,12 @@ export class Mob extends Actor {
         const source = isSource ? sourceOrCause : ActorDamageSource.create(sourceOrCause);
         const retval = this.hurtEffects_(source, damage, knock, ignite);
         return retval;
+    }
+    getArmorCoverPercentage(): float32_t {
+        abstract();
+    }
+    getToughnessValue(): int32_t {
+        abstract();
     }
 }
 

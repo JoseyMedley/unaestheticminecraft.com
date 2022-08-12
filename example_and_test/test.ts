@@ -39,6 +39,7 @@ import { bin64_t, bool_t, CxxString, float32_t, float64_t, int16_t, int32_t, uin
 import { CxxStringWrapper } from "bdsx/pointer";
 import { procHacker } from "bdsx/prochacker";
 import { PseudoRandom } from "bdsx/pseudorandom";
+import { jsdata } from "bdsx/storage/jsdata";
 import { Tester } from "bdsx/tester";
 import { arrayEquals, getEnumKeys, hex, stripSlashes } from "bdsx/util";
 import { getRecentSentPacketId } from "./net-rawpacket";
@@ -319,6 +320,25 @@ Tester.concurrency({
             }
         }
 
+    },
+
+    jsdata() {
+        const test=(value:unknown)=>{
+            const converted = jsdata.deserialize(jsdata.serialize(value));
+            this.deepEquals(converted, value, `${typeof value} jsdata mismatched`, v=>JSON.stringify(v));
+        }
+        test(1);
+        test(-1);
+        test('2');
+        test('very very long text');
+        test(true);
+        test(false);
+        test(null);
+        test(undefined);
+        test([1,'2']);
+        test({a:1, b:'2'});
+        test(new Date);
+        test([1,['2',3],{a:4,b:5}, true, false, null, undefined]);
     },
 
     memset() {
@@ -741,7 +761,7 @@ Tester.concurrency({
             if (connreq !== null) {
                 const cert = connreq.getCertificate();
                 let uuid = cert.json.value()["extraData"]["identity"];
-                this.equals(uuid, cert.getIdentityString(), 'getIdentityString() !== extraData.identity');
+                this.equals(cert.getIdentityString(), uuid, 'getIdentityString() !== extraData.identity');
             }
 
             setTimeout(() => {
@@ -827,17 +847,17 @@ Tester.concurrency({
                             let actual = abil.getValue();
                             if (typeof actual === 'number') actual = Math.round(actual*ROUND_UP_AXIS)/ROUND_UP_AXIS;
                             if (typeof expected === 'number') expected = Math.round(expected*ROUND_UP_AXIS)/ROUND_UP_AXIS;
-                            this.equals(actual, expected, `non expected ${AbilitiesIndex[index]} value`);
+                            this.equals(actual, expected, `unexpected ${AbilitiesIndex[index]} value`);
                         };
                         checkAbility(AbilitiesIndex.Build, true);
                         checkAbility(AbilitiesIndex.Mine, true);
                         checkAbility(AbilitiesIndex.DoorsAndSwitches, true);
                         checkAbility(AbilitiesIndex.OpenContainers, true);
                         checkAbility(AbilitiesIndex.AttackMobs, true);
-                        checkAbility(AbilitiesIndex.Invulnerable, false);
+                        // checkAbility(AbilitiesIndex.Invulnerable, false); // skip for creative
                         checkAbility(AbilitiesIndex.Flying, false);
-                        checkAbility(AbilitiesIndex.MayFly, false);
-                        checkAbility(AbilitiesIndex.Instabuild, false);
+                        // checkAbility(AbilitiesIndex.MayFly, false); // skip for creative
+                        // checkAbility(AbilitiesIndex.Instabuild, false); // skip for creative
                         checkAbility(AbilitiesIndex.Lightning, false);
                         checkAbility(AbilitiesIndex.FlySpeed, 0.05);
                         checkAbility(AbilitiesIndex.WalkSpeed, 0.1);
@@ -857,6 +877,7 @@ Tester.concurrency({
                             this.assert(actor === connectedNi.getActor(), 'ni.getActor() is not actor');
                             actor.setName('test');
                             this.equals(actor.getName(), 'test', 'name is not set');
+                            actor.setName(name);
                         }
                         this.equals(actor.getEntityTypeId(), ActorType.Player, 'player type does not match');
                         this.assert(actor.isPlayer(), 'player is not the player');
@@ -920,7 +941,7 @@ Tester.concurrency({
         });
     },
 
-    attributeNames():void {
+    attributeNames() {
         @nativeClass(null)
         class Attribute extends AbstractClass {
             @nativeField(int32_t)

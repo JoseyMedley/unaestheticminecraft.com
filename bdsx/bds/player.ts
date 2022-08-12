@@ -1,8 +1,9 @@
 import { abstract, BuildPlatform } from "../common";
 import { mce } from "../mce";
 import { float32_t } from "../nativetype";
-import type { Abilities, LayeredAbilities } from "./abilities";
-import { Actor, ActorDamageSource, ActorUniqueID, DimensionId, Mob } from "./actor";
+import { HasStorage, Storage } from "../storage";
+import type { LayeredAbilities } from "./abilities";
+import { Actor, ActorDamageSource, DimensionId, Mob } from "./actor";
 import { AttributeId, AttributeInstance } from "./attribute";
 import { Bedrock } from "./bedrock";
 import { Block } from "./block";
@@ -491,7 +492,11 @@ interface RawTextObject {
     rawtext: RawTextObject.Properties[];
 }
 
-export class ServerPlayer extends Player {
+export class ServerPlayer extends Player implements HasStorage {
+    static readonly [Storage.classId] = 'player';
+    [Storage.id]():string { return mce.UUID.toString(this.getUuid()); }
+    [Storage.aliasId]():string { return '_'+this.getName(); }
+
     /** @deprecated Use `this.getNetworkIdentifier()` instead */
     get networkIdentifier(): NetworkIdentifier {
         return this.getNetworkIdentifier();

@@ -1,7 +1,7 @@
 import * as util from 'util';
 import { CircularDetector } from "./circulardetector";
 import { abstract, Encoding, TypeFromEncoding } from "./common";
-import { NativePointer, StaticPointer, VoidPointer } from "./core";
+import { NativePointer, StaticPointer } from "./core";
 import { msAlloc } from "./msalloc";
 import { nativeClass, NativeClass, NativeClassType, nativeField } from "./nativeclass";
 import { CxxString, int64_as_float_t, NativeDescriptorBuilder, NativeType, Type } from "./nativetype";
@@ -39,12 +39,6 @@ export abstract class Wrapper<T> extends NativeClass {
         });
     }
 
-    static [NativeType.ctor_copy](to:StaticPointer, from:StaticPointer):void{
-        to.copyFrom(from, 8);
-    }
-    static [NativeType.ctor_move](to:StaticPointer, from:StaticPointer):void {
-        to.copyFrom(from, 8);
-    }
     static [NativeType.descriptor](this:{new():Wrapper<any>},builder:NativeDescriptorBuilder, key:string, info:NativeDescriptorBuilder.Info):void {
         const {offset} = info;
         const type = this;

@@ -40,7 +40,6 @@
       ],
       "@typescript-eslint/brace-style": ["error", "1tbs", {"allowSingleLine": true}],
       "@typescript-eslint/comma-dangle": ["error", "always-multiline"],
-      "@typescript-eslint/no-require-imports": "error",
       "github/array-foreach": "error",
       "import/no-cycle": "error",
       "import/no-default-export": "error",
@@ -74,6 +73,7 @@
           "message": "Please use the relative path in bdsx libraries."
         }]
       }],
-      "spaced-comment": ["error", "always", { "exceptions": ["/"], "markers": ["/"] }]
+      "spaced-comment": ["error", "always", { "exceptions": ["/"], "markers": ["/"] }],
+      "no-control-regex": "off"
     }
 }

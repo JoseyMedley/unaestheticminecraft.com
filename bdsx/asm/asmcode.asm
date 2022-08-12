@@ -405,6 +405,11 @@ export proc debugBreak
     int3
 endp
 
+export proc returnRcx
+    mov rax, rcx
+endp
+
+; BDS hooks
 export def CommandOutputSenderHookCallback:qword
 export proc CommandOutputSenderHook
     stack 28h
@@ -508,7 +513,7 @@ export proc packetRawHook
     jmp onPacketRaw
  _skipEvent:
     mov edx, r15d
-    lea rcx, [rbp+0x90] ; packet
+    lea rcx, [rbp+0x80] ; packet
     jmp createPacketRaw
 endp
 
@@ -559,7 +564,7 @@ export proc packetAfterHook
     stack 28h
 
     ; orignal codes
-    mov rcx, [rbp+90h] ; packet
+    mov rcx, [rbp+80h] ; packet
     call handlePacket
 
     lea r10, enabledPacket
@@ -567,7 +572,7 @@ export proc packetAfterHook
     unwind
     test al, al
     jz _skipEvent
-    mov rcx, [rbp+90h] ; packet
+    mov rcx, [rbp+80h] ; packet
     mov rdx, r13 ; NetworkIdentifier
     jmp onPacketAfter
 _skipEvent:

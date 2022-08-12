@@ -18,9 +18,10 @@ export abstract class AbstractWriter {
     }
 
     writeVarString(text:string):void {
-        this.writeVarUint(text.length);
         const encoder = new TextEncoder;
-        this.write(encoder.encode(text));
+        const buffer = encoder.encode(text);
+        this.writeVarUint(buffer.length);
+        this.write(buffer);
     }
 
     writeVarUint(n:number):void {
@@ -139,16 +140,49 @@ export abstract class AbstractWriter {
 export abstract class AbstractReader {
     abstract get():number;
     abstract read(values:Uint8Array, offset:number, length:number):number;
+    getBuffer(length:number):Buffer {
+        const out = Buffer.allocUnsafe(length);
+        const len = this.read(out, 0, length);
+        if (out.length !== len) return out.subarray(0, len);
+        return out;
+    }
+
+    readInt32():number {
+        const v1 = this.get();
+        const v2 = this.get();
+        const v3 = this.get();
+        const v4 = this.get();
+        return v1 | (v2 << 8) | (v3 << 16) | (v4 << 24);
+    }
+
+    readFloat32():number {
+        return floatbits.bits_to_f32(this.readInt32());
+    }
+
+    readFloat64():number {
+        const low = this.readInt32();
+        const high = this.readInt32();
+        return floatbits.bits_to_f64(low, high);
+    }
+
+    readUint8():number {
+        return this.get();
+    }
 
     readVarUint():number {
         let out = 0;
         let shift = 1;
         for (;;) {
             const n = this.get();
-            if (!(n&0x80)) return out | (n * shift);
-            out += (n & 0x7f) * shift;
+            if (!(n&0x80)) return n * shift + out;
+            out = (n & 0x7f) * shift + out;
             shift *= 0x80;
         }
+    }
+
+    readVarString():string {
+        const n = this.readVarUint();
+        return this.getBuffer(n).toString('utf8');
     }
 
     readNullTerminatedString():string {
@@ -160,5 +194,4 @@ export abstract class AbstractReader {
             array.push(n);
         }
     }
-
 }

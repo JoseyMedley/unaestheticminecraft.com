@@ -1,6 +1,7 @@
 import * as colors from 'colors';
 import * as readline from 'readline';
 import { createAbstractObject } from "./abstractobject";
+import { installMinecraftAddons } from './addoninstaller';
 import { asmcode } from "./asm/asmcode";
 import { asm, Register } from "./assembler";
 import { Bedrock } from './bds/bedrock';
@@ -22,6 +23,7 @@ import { events } from "./event";
 import { GetLine } from "./getline";
 import { makefunc } from "./makefunc";
 import { bool_t, CxxString, int32_t, int64_as_float_t, NativeType, void_t } from "./nativetype";
+import { loadAllPlugins } from './plugins';
 import { CxxStringWrapper } from "./pointer";
 import { procHacker } from './prochacker';
 import { remapError } from "./source-map-support";
@@ -196,7 +198,7 @@ function _launch(asyncResolve:()=>void):void {
         bedrockServer.nonOwnerPointerServerNetworkHandler.dispose();
         decay(bedrockServer.nonOwnerPointerServerNetworkHandler);
     }, void_t);
-    asmcode.gameThreadInner = proc['<lambda_a0aefe274f5913ecbd2fdf009aa305ae>::operator()']; // caller of ServerInstance::_update
+    asmcode.gameThreadInner = proc['<lambda_09545ac3fb7d475932bfc25c15253480>::operator()']; // caller of ServerInstance::_update
     asmcode.free = dll.ucrtbase.free.pointer;
 
     // hook game thread
@@ -204,7 +206,7 @@ function _launch(asyncResolve:()=>void):void {
 
     procHacker.patching(
         'hook-game-thread',
-        'std::thread::_Invoke<std::tuple<<lambda_a0aefe274f5913ecbd2fdf009aa305ae> >,0>', // caller of ServerInstance::_update
+        'std::thread::_Invoke<std::tuple<<lambda_09545ac3fb7d475932bfc25c15253480> >,0>', // caller of ServerInstance::_update
         6,
         asmcode.gameThreadHook, // original depended
         Register.rax,
@@ -246,7 +248,7 @@ function _launch(asyncResolve:()=>void):void {
     require('./event_impl');
 
     loadingIsFired = true;
-    events.serverLoading.fire();
+    events.serverLoading.promiseFire();
     events.serverLoading.clear();
 
     // hook on update
@@ -257,8 +259,8 @@ function _launch(asyncResolve:()=>void):void {
     }, void_t, {name: 'events.serverUpdate.fire'});
 
     procHacker.patching('update-hook',
-        '<lambda_a0aefe274f5913ecbd2fdf009aa305ae>::operator()', // caller of ServerInstance::_update
-        0x832, asmcode.updateWithSleep, Register.rax, true, [
+        '<lambda_09545ac3fb7d475932bfc25c15253480>::operator()', // caller of ServerInstance::_update
+        0x871, asmcode.updateWithSleep, Register.rax, true, [
             0x48, 0x2B, 0xC8,                         // sub rcx,rax
             0x48, 0x81, 0xF9, 0x88, 0x13, 0x00, 0x00, // cmp rcx,1388
             0x7C, 0x0B,                               // jl bedrock_server.7FF743BA7B50
@@ -334,6 +336,12 @@ function _launch(asyncResolve:()=>void):void {
     asmcode.terminate = dll.ucrtbase.module.getProcAddress('terminate');
     asmcode.ExitThread = dll.kernel32.module.getProcAddress('ExitThread');
     procHacker.hookingRawWithoutOriginal('?terminate@details@gsl@@YAXXZ', asmcode.terminateHook);
+
+    /**
+     * send stdin to bedrockServer.executeCommandOnConsole
+     * without this, you need to control stdin manually
+     */
+    bedrockServer.DefaultStdInHandler.install();
 }
 
 const stopfunc = procHacker.js('?stop@DedicatedServer@@UEAA_NXZ', void_t, null, VoidPointer);
@@ -418,15 +426,18 @@ export namespace bedrockServer {
         bedrock_server_exe.forceKill(exitCode);
     }
 
-    export function launch():Promise<void> {
-        return new Promise((resolve, reject)=>{
-            if (launched) {
-                reject(remapError(Error('Cannot launch BDS again')));
-                return;
-            }
-            launched = true;
-            _launch(resolve);
-        });
+    export async function launch():Promise<void> {
+        if (launched) {
+            throw remapError(Error('Cannot launch BDS again'));
+        }
+        launched = true;
+
+        await Promise.all([
+            loadAllPlugins(),
+            installMinecraftAddons(),
+        ]);
+
+        await new Promise<void>(_launch);
     }
 
     /**

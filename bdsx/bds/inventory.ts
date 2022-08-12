@@ -132,6 +132,9 @@ export class Item extends NativeClass {
     getArmorValue():number{
         abstract();
     }
+    getToughnessValue(): int32_t {
+        abstract();
+    }
     isDamageable():boolean {
         abstract();
     }
@@ -317,7 +320,9 @@ export class ItemStackBase extends NativeClass {
         this._setCustomLore(cxxvector);
         cxxvector.destruct();
     }
-
+    getCustomLore(): string[] {
+        abstract();
+    }
     /**
      * @remarks The value is applied only to Damageable items
      */
@@ -590,7 +595,7 @@ export enum PlayerUISlot {
 
 @nativeClass(null)
 export class PlayerInventory extends AbstractClass {
-    @nativeField(Inventory.ref(), 0xC0) // accessed in PlayerInventory::addItem
+    @nativeField(Inventory.ref(), 0xC0) // accessed in PlayerInventory::add
     container:Inventory;
 
     addItem(itemStack:ItemStack, linkEmptySlot:boolean):boolean {
@@ -636,6 +641,17 @@ export class PlayerInventory extends AbstractClass {
         abstract();
     }
     swapSlots(primarySlot:number, secondarySlot:number):void {
+        abstract();
+    }
+    /**
+     * Removes the items from inventory.
+     * @param item item for resource to remove
+     * @param requireExactAux if true, will only remove the item if it has the exact same aux value
+     * @param requireExactData if true, will only remove the item if it has the exact same data value
+     * @param maxCount max number of items to remove
+     * @returns number of items not removed
+     */
+    removeResource(item: ItemStack, requireExactAux: boolean = true, requireExactData: boolean = false, maxCount?: int32_t): int32_t {
         abstract();
     }
 }
