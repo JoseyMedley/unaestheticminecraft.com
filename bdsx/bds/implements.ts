@@ -31,6 +31,7 @@ import { CommandOrigin, ServerCommandOrigin, VirtualCommandOrigin } from "./comm
 import './commandparsertypes';
 import { HitResult, OnHitSubcomponent } from "./components";
 import { Certificate, ConnectionRequest, JsonValue } from "./connreq";
+import { CxxOptional } from "./cxxoptional";
 import { Dimension } from "./dimension";
 import { MobEffect, MobEffectInstance } from "./effects";
 import { EnchantUtils, ItemEnchants } from "./enchants";
@@ -499,6 +500,8 @@ const Actor$canAttack = procHacker.jsv("??_7Actor@@6B@", "?canAttack@Actor@@UEBA
 Actor.prototype.canAttack = function (target, unknown = false) {
     return Actor$canAttack.call(this, target, unknown);
 };
+Actor.prototype.getLastDeathPos = procHacker.jsv("??_7Actor@@6B@", "?getLastDeathPos@Actor@@UEBA?AV?$optional@VBlockPos@@@std@@XZ", CxxOptional.make(BlockPos), {this:Actor, structureReturn:true});
+Actor.prototype.getLastDeathDimension = procHacker.jsv("??_7Actor@@6B@", "?getLastDeathDimension@Actor@@UEBA?AV?$optional@V?$AutomaticID@VDimension@@H@@@std@@XZ", CxxOptional.make(int32_t), {this:Actor, structureReturn:true});
 
 Mob.prototype.getArmorValue = procHacker.jsv("??_7Mob@@6B@", "?getArmorValue@Mob@@UEBAHXZ", int32_t, {this:Actor});
 Mob.prototype.knockback = procHacker.jsv('??_7Mob@@6B@', '?knockback@Mob@@UEAAXPEAVActor@@HMMMMM@Z', void_t, {this:Mob}, Actor, int32_t, float32_t, float32_t, float32_t, float32_t, float32_t);
@@ -603,7 +606,7 @@ procHacker.hookingRawWithCallOriginal('??1Actor@@UEAA@XZ', asmcode.actorDestruct
 Player.abstract({
     abilities:[LayeredAbilities, 0x9cc], // accessed in AbilityCommand::execute when calling Abilities::setAbility
     playerUIContainer:[PlayerUIContainer, 0x1280], // accessed in Player::readAdditionalSaveData when calling PlayerUIContainer::load
-    deviceId:[CxxString, 0x23B0], // accessed in AddPlayerPacket::AddPlayerPacket (the string assignment between Abilities::Abilities and Player::getPlatform)
+    deviceId:[CxxString, 0x2590], // accessed in AddPlayerPacket::AddPlayerPacket (the string assignment between Abilities::Abilities and Player::getPlatform)
 });
 (Player.prototype as any)._setName = procHacker.js("?setName@Player@@UEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z", void_t, {this: Player}, CxxString);
 const PlayerListPacket$emplace = procHacker.js("?emplace@PlayerListPacket@@QEAAX$$QEAVPlayerListEntry@@@Z", void_t, null, PlayerListPacket, PlayerListEntry);

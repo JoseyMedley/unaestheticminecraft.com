@@ -15,7 +15,7 @@ import { ItemStack } from "bdsx/bds/inventory";
 import { ByteArrayTag, ByteTag, CompoundTag, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, NBT, ShortTag, StringTag, Tag } from "bdsx/bds/nbt";
 import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
 import { MinecraftPacketIds } from "bdsx/bds/packetids";
-import { AttributeData, PacketIdToType } from "bdsx/bds/packets";
+import { AttributeData, ModalFormResponsePacket, PacketIdToType } from "bdsx/bds/packets";
 import { Player, PlayerPermission, SimulatedPlayer } from "bdsx/bds/player";
 import { proc } from "bdsx/bds/symbols";
 import { bin } from "bdsx/bin";
@@ -703,6 +703,16 @@ Tester.concurrency({
         }
     },
 
+    packetFields() {
+        const packet = ModalFormResponsePacket.allocate();
+        this.equals(packet.id, 0);
+        this.equals(packet.response.value(), undefined);
+        packet.id = 10;
+        packet.response.initValue();
+        packet.response.value()!.setValue('test');
+        packet.dispose();
+    },
+
     packetEvents() {
         let idcheck = 0;
         let sendpacket = 0;
@@ -803,10 +813,10 @@ Tester.concurrency({
                         'getDimension() is not OverworldDimension');
                     this.equals(actor.getDimensionId(), DimensionId.Overworld, 'getDimensionId() is not overworld');
                     if (actor instanceof Player) {
-                        const cmdlevel = actor.abilities.getCommandPermissionLevel();
+                        const cmdlevel = actor.abilities.getCommandPermissions();
                         this.assert(CommandPermissionLevel.Normal <= cmdlevel && cmdlevel <= CommandPermissionLevel.Internal, 'invalid actor.abilities');
                         this.equals(actor.getCommandPermissionLevel(), cmdlevel, 'Invalid command permission level');
-                        const playerlevel = actor.abilities.getPlayerPermissionLevel();
+                        const playerlevel = actor.abilities.getPlayerPermissions();
                         this.assert(PlayerPermission.VISITOR <= playerlevel && playerlevel <= PlayerPermission.CUSTOM, 'invalid actor.abilities');
                         this.equals(actor.getPermissionLevel(), playerlevel, 'Invalid player permission level');
 
@@ -894,6 +904,9 @@ Tester.concurrency({
         events.playerJoin.on(this.wrap((ev) => {
             const player = ev.player;
             try {
+                const netId = player.getNetworkIdentifier();
+                this.equals(player.deviceId, bedrockServer.serverNetworkHandler.fetchConnectionRequest(netId).getDeviceId(), "player.deviceId is broken");
+
                 const region = player.getRegion();
                 const levelChunk = region.getChunkAt(BlockPos.create(player.getPosition()));
                 if (levelChunk) {
