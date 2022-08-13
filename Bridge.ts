@@ -138,7 +138,6 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
         if ( GetConfig("EnableJoinLeaveMessages") == true ) {
             // Player Join (Extract Username)
             SendToDiscordEvent(username + " has joined the server!");
-            SendToPlayerLog(username + " has joined the server!");
         }
     }
 });
@@ -153,7 +152,6 @@ events.networkDisconnected.on(networkIdentifier => {
         // Player Leave (Extract Username)
         if(id != undefined){
             SendToDiscordEvent(id + " has left the server!");
-            SendToPlayerLog(id + " has left the server!");
         }
     }
 });
@@ -181,7 +179,7 @@ events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
 
 
 // Chat Message Sent
-events.packetAfter(MinecraftPacketIds.Text).on(ev => {
+events.packetBefore(MinecraftPacketIds.Text).on(ev => {
     SendToDiscord(ev.message, ev.name);
 });
 
