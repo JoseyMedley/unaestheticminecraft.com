@@ -7,7 +7,7 @@ import { TextPacket } from "bdsx/bds/packets";
 import { DeviceOS } from "bdsx/common";
 import { bedrockServer } from "bdsx/launcher";
 import { TransferPacket } from "bdsx/bds/packets";
-import { Command, CommandRawText } from "bdsx/bds/command";
+import { Command, CommandRawText, CommandPermissionLevel } from "bdsx/bds/command";
 
 command.register("transferserver", "transfers yourself to another server").overload((param, origin) =>{
     const transferPacket = TransferPacket.allocate();
