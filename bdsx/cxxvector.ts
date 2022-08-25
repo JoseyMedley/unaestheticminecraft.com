@@ -15,6 +15,10 @@ export interface CxxVectorType<T> extends NativeClassType<CxxVector<T>> {
 
 const VECTOR_SIZE = 0x18;
 
+function getVectorSymbol(type:Type<any>):string {
+    return mangle.templateClass(['std', 'vector'], type, mangle.templateClass(['std', 'allocator'], type));
+}
+
 function getSize(bytes:number, compsize:number):number {
     if (bytes % compsize !== 0) {
         throw Error(`invalid vector size (bytes=0x${bytes.toString(16)}, compsize=0x${compsize.toString(16)})`);
@@ -645,27 +649,17 @@ export abstract class CxxVector<T> extends NativeClass implements Iterable<T> {
     }
 }
 
-function getVectorSymbol(type:Type<any>):string {
-    return mangle.templateClass(['std', 'vector'], type, mangle.templateClass(['std', 'allocator'], type));
-}
-
-export class CxxVectorToArray<T> extends NativeType<T[]> {
+class CxxVectorToArrayImpl<T> extends NativeType<T[]> {
     public readonly type:CxxVectorType<T>;
 
-    private constructor(public readonly compType:Type<T>) {
+    constructor(public readonly compType:Type<T>) {
         super(getVectorSymbol(compType), `CxxVectorToArray<${compType.name}>`, VECTOR_SIZE, 8,
             v=>v instanceof Array,
             undefined,
             (ptr, offset)=>ptr.addAs(this.type, offset).toArray(),
             (ptr, v, offset)=>ptr.addAs(this.type, offset).setFromArray(v),
             (stackptr, offset)=>stackptr.getPointerAs(this.type, offset).toArray(),
-            (stackptr, param, offset)=>{
-                const buf = new this.type(true);
-                buf.construct();
-                buf.setFromArray(param);
-                makefunc.temporalDtors.push(()=>buf.destruct());
-                stackptr.setPointer(buf, offset);
-            },
+            undefined,
             ptr=>ptr.fill(0, VECTOR_SIZE),
             ptr=>{
                 const beg = ptr.getPointer(0);
@@ -679,9 +673,14 @@ export class CxxVectorToArray<T> extends NativeType<T[]> {
             },
         );
         this.type = CxxVector.make(this.compType);
-    }
-
-    static make<T>(compType:Type<T>):CxxVectorToArray<T> {
-        return Singleton.newInstance<CxxVectorToArray<T>>(CxxVectorToArray, compType, ()=>new CxxVectorToArray<T>(compType));
+        this[makefunc.paramHasSpace] = true;
     }
 }
+export namespace CxxVectorToArray {
+    export const name = 'CxxVectorToArray';
+    export function make<T>(compType:Type<T>):NativeType<T[]> {
+        return Singleton.newInstance<NativeType<T[]>>(CxxVectorToArrayImpl, compType, ()=>new CxxVectorToArrayImpl<T>(compType));
+    }
+}
+
+export type CxxVectorToArray<T> = T[];
