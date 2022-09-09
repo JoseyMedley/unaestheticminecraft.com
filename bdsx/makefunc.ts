@@ -3,7 +3,7 @@ import { asmcode } from "./asm/asmcode";
 import { asm, Register, X64Assembler } from "./assembler";
 import { proc } from './bds/symbols';
 import "./codealloc";
-import { abstract, Bufferable, emptyFunc, Encoding } from "./common";
+import { Bufferable, emptyFunc, Encoding } from "./common";
 import { AllocatedPointer, cgate, chakraUtil, jshook, NativePointer, runtimeError, StaticPointer, StructurePointer, uv_async, VoidPointer } from "./core";
 import { dllraw } from "./dllraw";
 import { FunctionGen } from "./functiongen";
@@ -134,7 +134,7 @@ export type FunctionFromTypes_np<
     (this:GetThisFromOpts<OPTS>, ...args: TypesFromParamIds_np2js<PARAMS>) => TypeFrom_js2np<RETURN>;
 
 export type FunctionFromTypes_js<
-    PTR extends VoidPointer|[number, number?],
+    PTR extends VoidPointer|readonly [number, number?],
     OPTS extends MakeFuncOptions<any>|null,
     PARAMS extends ParamType[],
     RETURN extends ParamType> =
@@ -155,17 +155,62 @@ function invalidParameterError(paramName:string, expected:string, actual:unknown
 export namespace makefunc {
     export const temporalKeeper:any[] = [];
 
+    /**
+     * get the value from the pointer.
+     */
     export const getter = Symbol('getter');
+    /**
+     * set the value to the pointer.
+     */
     export const setter = Symbol('setter');
+    /**
+     * set the value from the register.
+     * Passed directly to registers via temporary stack memory.
+     */
     export const setToParam = Symbol('makefunc.writeToParam');
+    /**
+     * get the value from the register
+     * Passed directly from registers via temporary stack memory.
+     */
     export const getFromParam = Symbol('makefunc.readFromParam');
+    /**
+     * it's a floating point.
+     * need to be passed as xmm registers
+     */
     export const useXmmRegister = Symbol('makefunc.returnWithXmm0');
+    /**
+     * the parameter will be passed as a pointer that points to stack space.
+     * it cannot be returned on makefunc.np
+     *
+     * flag for the native type
+     */
     export const paramHasSpace = Symbol('makefunc.paramHasSpace');
-    export const dtor = Symbol('makefunc.dtor');
+    /**
+     * constructor
+     */
     export const ctor = Symbol('makefunc.ctor');
+    /**
+     * destructor
+     */
+    export const dtor = Symbol('makefunc.dtor');
+    /**
+     * move constructor
+     */
     export const ctor_move = Symbol('makefunc.ctor_move');
+    /**
+     * size of the type
+     */
     export const size = Symbol('makefunc.size');
+    /**
+     * alignment of the type
+     */
     export const align = Symbol('makefunc.align');
+    /**
+     * this class is not stored in the stack on function calls.
+     * it is just assigned to the register directly.
+     *
+     * flag for the class
+     */
     export const registerDirect = Symbol('makefunc.registerDirect');
 
     export interface Paramable {
@@ -331,7 +376,6 @@ export namespace makefunc {
         const resultOffset = returnTypeResolved[makefunc.useXmmRegister] ? 0x50 : 0x48;
         if (options.structureReturn) {
             if (isBaseOf(returnTypeResolved, StructurePointer)) {
-                if (returnTypeResolved[paramHasSpace]) throw Error(`cannot native return with ${returnType.name}`);
                 gen.import('ctor_move', ctor_move);
                 gen.writeln('returnTypeResolved[ctor_move](retVar, res);');
                 gen.writeln(`returnTypeResolved[setToParam](stackptr, retVar, ${resultOffset});`); // set address
@@ -363,7 +407,7 @@ export namespace makefunc {
      * @param returnType *_t or *Pointer
      * @param params *_t or *Pointer
      */
-    export function js<PTR extends VoidPointer|[number, number?], OPTS extends MakeFuncOptions<any>|null, RETURN extends ParamType, PARAMS extends ParamType[]>(
+    export function js<PTR extends VoidPointer|readonly [number, number?], OPTS extends MakeFuncOptions<any>|null, RETURN extends ParamType, PARAMS extends ParamType[]>(
         functionPointer: PTR,
         returnType:RETURN,
         opts?: OPTS,
