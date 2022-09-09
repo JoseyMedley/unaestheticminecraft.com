@@ -10,11 +10,10 @@ import { CxxVector } from "bdsx/cxxvector";
 import { int16_t } from "bdsx/nativetype";
 import { bedrockServer } from "bdsx/launcher";
 import { hex } from "bdsx/util";
-import { PlayerActionPacket } from "bdsx/bds/packets";
 console.log("Open Anticheat loaded");
 
 // illegal entities and blocks
-var illegalEntities = ["minecraft:ender_dragon", "minecraft:phantom", "minecraft:elder_guardian_ghost", "minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard", "minecraft:command_block_minecart"];
+var illegalEntities = ["minecraft:phantom", "minecraft:elder_guardian_ghost", "minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard", "minecraft:command_block_minecart"];
 var illegalBlocks = ["tile:invisiblebedrock", "minecraft:end_portal_frame", "minecraft:mob_spawner", "minecraft:allow", "minecraft:deny",
 "minecraft:border_block", "minecraft:structure_void", "minecraft:camera", "minecraft:structure_block", "minecraft:nether_reactor", "minecraft:glowingobsidian", "minecraft:barrier",
 "minecraft:command_block", "minecraft:repeating_command_block", "minecraft:chain_command_blocks", "minecraft:bedrock", "minecraft:jigsaw"];
@@ -73,7 +72,7 @@ events.packetBefore(MinecraftPacketIds.PlayerAuthInput).on((pk, ni) => {
 });
 
 //disconnect DoS patch
-events.packetRaw(MinecraftPacketIds.Disconnect).on(ev => {
+events.packetBefore(MinecraftPacketIds.Disconnect).on(ev => {
     console.log("Disconnect DoS attempted");
     return CANCEL;
 });
@@ -110,7 +109,7 @@ events.packetSend(MinecraftPacketIds.PlayStatus).on((pk, ni) => {
         if (names.get(ni)) {
             if (ni.getActor()!.getName() !== names.get(ni)) {
                 console.log(names.get(ni) + " used fakename");
-                bedrockServer.serverInstance.disconnectClient(ni, `Use your real username dipshit`);
+                ni.getActor()?.setName(names.get(ni));
             }
         }
     }
@@ -122,7 +121,7 @@ const enchants = {
     2:  4,
     3:  4,
     4:  4,
-    5:  0, //this is thorns. revert this to 3 if it no longer crashes servers
+    5:  3, //this is thorns. revert this to 3 if it no longer crashes servers
     6:  3,
     7:  3,
     8:  1,
@@ -170,6 +169,9 @@ events.playerInventoryChange.on((ev)=>{
                     let lvl = (enchantment.get('lvl') as ShortTag).data;
                     let id = (enchantment.get('id') as ShortTag).data;
                     let allowed_lvl = enchants[id as keyof typeof enchants];
+                    if (id == 5 && lvl == 0) {
+                        enchantment.set("lvl", ShortTag.constructWith(3));
+                      }
                     if (allowed_lvl < lvl) {
                         console.log("Reverted an overenchanted item");
                         enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
@@ -265,7 +267,7 @@ events.packetBefore(MinecraftPacketIds.Text).on((ev, ni, packetid) =>{
     var curr = currentmessages.get(ni);
     if (curr == undefined) return;
     currentmessages.set(ni, msg);
-    if (curr == msg || msg.includes("minecraft bedrock utility mod")){
+    if (curr == msg || msg.includes("minecraft bedrock utility mod" || (msg.includes("Zephyr") && msg.includes("Ambrosial")))){
         var currpoints = points.get(ni);
         if (currpoints == undefined) return;
         if (currpoints >= 5){
@@ -325,6 +327,7 @@ events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => 
     }
 });
 
-events.sculkSensorActivate.on(ev => {
+events.packetRaw(MinecraftPacketIds.PurchaseReceipt).on((ptr) => {
+    console.log("purchase receipt crash");
     return CANCEL;
 });
