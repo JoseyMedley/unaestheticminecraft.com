@@ -106,10 +106,11 @@ events.packetAfter(MinecraftPacketIds.Login).on((pk, ni) => {
 
 events.packetSend(MinecraftPacketIds.PlayStatus).on((pk, ni) => {
     if (pk.status === 3) {
-        if (names.get(ni)) {
-            if (ni.getActor()!.getName() !== names.get(ni)) {
+        var name = names.get(ni)
+        if (name && name !== undefined) {
+            if (ni.getActor()!.getName() !== name) {
                 console.log(names.get(ni) + " used fakename");
-                ni.getActor()?.setName(names.get(ni));
+                ni.getActor()?.setName(name);
             }
         }
     }
