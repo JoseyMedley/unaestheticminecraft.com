@@ -6,13 +6,24 @@ import { command } from "./bdsx/command";
 import { TextPacket } from "bdsx/bds/packets";
 import { DeviceOS } from "bdsx/common";
 import { bedrockServer } from "bdsx/launcher";
-import { CommandResultType } from "bdsx/commandresult";
+import { TransferPacket } from "bdsx/bds/packets";
+import { Command, CommandPermissionLevel, CommandRawText } from "bdsx/bds/command";
 
+command.register("transferserver", "transfers yourself to another server").overload((param, origin) =>{
+    const transferPacket = TransferPacket.allocate();
+    var ni = origin.getEntity()?.getNetworkIdentifier();
+    if (!ni) return;
+    transferPacket.address = String(param.address);
+    transferPacket.port = Number(param.port);
+    transferPacket.sendTo(ni, 0);
+    transferPacket.dispose();
+}, {address:CommandRawText, port:CommandRawText});
 
 console.log("initializing Utilities");
 var Radius = 500;
 var Multiplier = [1,-1];
 bedrockServer.executeCommand("/gamerule showcoordinates true", true);
+
 command.register("suicide", "respawns yourself").overload((param, origin, output) =>{
     var playername = origin.getName();
     var newcommand = "/kill " + playername;
@@ -36,13 +47,12 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
     // sendLog
     console.log(`Connection: ${username}> IP=${ip}, XUID=${xuid}, OS=${DeviceOS[connreq.getDeviceOS()] || 'UNKNOWN'}`);
 
-    // sendPacket
-    setTimeout(()=>{
-        const textPacket = TextPacket.create();
-        textPacket.message = "Welcome to unaestheticminecraft.com. Use /suicide to respawn. Most god hacks don't work. Git gud or git out";
-        textPacket.sendTo(networkIdentifier);
-        textPacket.dispose();
-    }, 10000);
+    // send login message
+    const pkt = TextPacket.allocate();
+    pkt.type = TextPacket.Types.Raw;
+    pkt.message = "Welcome to unaestheticminecraft.com. Use /suicide to respawn. Most god hacks don't work. Git gud or git out";
+    pkt.sendTo(networkIdentifier)
+    pkt.dispose();
 });
 
 var counter = 0;
@@ -63,17 +73,22 @@ events.levelTick.on(() => {
 });
 
 //add ability to break cursed end portals
-events.blockDestructionStart.on(ev =>{
-    var dim = ev.player.getDimension();
+events.blockDestructionStart.on((ev) => {
+    var player = ev.player;
+    if (!player || player == undefined) {
+        console.log("fake player tried to break blocks");
+        return;
+    }
+    var playername = player.getName();
     var Xpos = ev.blockPos.x;
     var Ypos = String(ev.blockPos.y);
     var Zpos = String(ev.blockPos.z);
-    if(bedrockServer.executeCommand("/testforblock " + String(Xpos) + " " + Ypos + " " + Zpos + " " + "end_portal", true).result == 1){
-        var firsttest = bedrockServer.executeCommand("/testforblock " + String(Xpos + 1) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
-        var secondtest = bedrockServer.executeCommand("/testforblock " + String(Xpos + 2) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
-        var thirdtest = bedrockServer.executeCommand("/testforblock " + String(Xpos + 3) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
-        if (firsttest + secondtest + thirdtest == 1536){
-            bedrockServer.executeCommand("/fill " + String(Xpos) + " " + Ypos + " " + Zpos + " " + String(Xpos) + " " + Ypos + " " + Zpos + " air", true)
+    if(bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos) + " " + Ypos + " " + Zpos + " " + "end_portal", true).result == 1) {
+        var firsttest = bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos + 1) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        var secondtest = bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos + 2) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        var thirdtest = bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos + 3) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        if (firsttest + secondtest + thirdtest == 1536) {
+            bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~" + " fill " + String(Xpos) + " " + Ypos + " " + Zpos + " " + String(Xpos) + " " + Ypos + " " + Zpos + " air", true);
         }
     }
 });
