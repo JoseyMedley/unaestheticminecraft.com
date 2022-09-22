@@ -788,6 +788,9 @@ export class GuiDataPickItemPacket extends Packet {
     // unknown
 }
 
+/**
+ * @deprecated deleted from BDS
+ */
 @nativeClass()
 export class AdventureSettingsPacket extends Packet {
     @nativeField(uint32_t)
@@ -2042,7 +2045,7 @@ export class ToastRequestPacket extends Packet {
     body: CxxString;
 }
 
-@nativeClass(null)
+@nativeClass(0x50)
 export class UpdateAbilitiesPacket extends Packet {
     // unknown
 }
