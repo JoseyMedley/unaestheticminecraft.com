@@ -1,8 +1,9 @@
 import { CommandParameterType } from "../commandparam";
-import { abstract } from "../common";
+import { abstract, VectorXY, VectorXYZ, VectorXZ } from "../common";
 import { nativeClass, nativeField, NativeStruct } from "../nativeclass";
 import { bin64_t, bool_t, float32_t, int32_t, NativeType, uint16_t, uint8_t } from "../nativetype";
 import { procHacker } from "../prochacker";
+import { proc } from "./symbols";
 
 export enum Facing {
     Down,
@@ -21,6 +22,11 @@ export namespace Facing {
 
 @nativeClass()
 export class BlockPos extends NativeStruct {
+    static readonly MIN = proc["?MIN@BlockPos@@2V1@B"].as(BlockPos);
+    static readonly MAX = proc["?MAX@BlockPos@@2V1@B"].as(BlockPos);
+    static readonly ZERO = proc["?ZERO@BlockPos@@2V1@B"].as(BlockPos);
+    static readonly ONE = proc["?ONE@BlockPos@@2V1@B"].as(BlockPos);
+
     @nativeField(int32_t)
     x:int32_t;
     @nativeField(int32_t)
@@ -28,7 +34,7 @@ export class BlockPos extends NativeStruct {
     @nativeField(int32_t)
     z:int32_t;
 
-    set(pos:{x:number, y:number, z:number}):void {
+    set(pos:VectorXYZ):void {
         this.x = pos.x;
         this.y = pos.y;
         this.z = pos.z;
@@ -109,9 +115,9 @@ export class BlockPos extends NativeStruct {
 
     static create(pos: Vec3): BlockPos;
     static create(pos: BlockPos): BlockPos;
-    static create(pos: {x:number, y:number, z:number}): BlockPos;
+    static create(pos: VectorXYZ): BlockPos;
     static create(x:number, y:number, z:number):BlockPos;
-    static create(a:number|{x:number, y:number, z:number}, b:number=0, c:number=0):BlockPos {
+    static create(a:number|VectorXYZ, b:number=0, c:number=0):BlockPos {
         if(typeof a === "number") {
             const v = new BlockPos(true);
             v.x = Math.floor(a);
@@ -137,14 +143,15 @@ export class ChunkPos extends NativeStruct {
     @nativeField(int32_t)
     z:int32_t;
 
-    set(pos:ChunkPos|{x:number, z:number}):void {
+    set(pos:ChunkPos|VectorXZ):void {
         this.x = pos.x;
         this.z = pos.z;
     }
 
     static create(x:number, z:number):ChunkPos;
     static create(pos:BlockPos):ChunkPos;
-    static create(a:number|BlockPos, b?:number):ChunkPos {
+    static create(pos:VectorXZ):ChunkPos;
+    static create(a:number|VectorXZ, b?:number):ChunkPos {
         const v = new ChunkPos(true);
         if (typeof a === "number") {
             v.x = a;
@@ -156,7 +163,7 @@ export class ChunkPos extends NativeStruct {
         return v;
     }
 
-    toJSON():{x: number, z: number} {
+    toJSON():VectorXZ {
         return {x:this.x, z:this.z};
     }
 }
@@ -170,7 +177,7 @@ export class ChunkBlockPos extends NativeStruct {
     @nativeField(uint8_t)
     z:uint8_t;
 
-    set(pos:ChunkBlockPos|{x:number, y:number, z:number}):void {
+    set(pos:ChunkBlockPos|VectorXYZ):void {
         this.x = pos.x;
         this.y = pos.y;
         this.z = pos.z;
@@ -178,7 +185,8 @@ export class ChunkBlockPos extends NativeStruct {
 
     static create(x:number, y:number, z:number):ChunkBlockPos;
     static create(pos:BlockPos):ChunkBlockPos;
-    static create(a:number|BlockPos, b?:number, c?:number):ChunkBlockPos {
+    static create(pos:VectorXYZ):ChunkBlockPos;
+    static create(a:number|VectorXYZ, b?:number, c?:number):ChunkBlockPos {
         const v = new ChunkBlockPos(true);
         if (typeof a === "number") {
             v.x = a;
@@ -204,7 +212,7 @@ export class Vec2 extends NativeStruct {
     @nativeField(float32_t)
     y:float32_t;
 
-    set(pos:Vec2|{x:number, y:number}):void {
+    set(pos:Vec2|VectorXY):void {
         this.x = pos.x;
         this.y = pos.y;
     }
@@ -216,13 +224,27 @@ export class Vec2 extends NativeStruct {
         return v;
     }
 
-    toJSON():{x: number, y: number} {
+    toJSON():VectorXY {
         return {x:this.x, y:this.y};
     }
 }
 
 @nativeClass()
 export class Vec3 extends NativeStruct {
+    static readonly MIN = proc["?MIN@Vec3@@2V1@B"].as(Vec3);
+    static readonly MAX = proc["?MAX@Vec3@@2V1@B"].as(Vec3);
+    static readonly ZERO = proc["?ZERO@Vec3@@2V1@B"].as(Vec3);
+    static readonly HALF = proc["?HALF@Vec3@@2V1@B"].as(Vec3);
+    static readonly ONE = proc["?ONE@Vec3@@2V1@B"].as(Vec3);
+    static readonly TWO = proc["?TWO@Vec3@@2V1@B"].as(Vec3);
+
+    static readonly UNIT_X = proc["?UNIT_X@Vec3@@2V1@B"].as(Vec3);
+    static readonly NEG_UNIT_X = proc["?NEG_UNIT_X@Vec3@@2V1@B"].as(Vec3);
+    static readonly UNIT_Y = proc["?UNIT_Y@Vec3@@2V1@B"].as(Vec3);
+    static readonly NEG_UNIT_Y = proc["?NEG_UNIT_Y@Vec3@@2V1@B"].as(Vec3);
+    static readonly UNIT_Z = proc["?UNIT_Z@Vec3@@2V1@B"].as(Vec3);
+    static readonly NEG_UNIT_Z = proc["?NEG_UNIT_Z@Vec3@@2V1@B"].as(Vec3);
+
     @nativeField(float32_t)
     x:float32_t;
     @nativeField(float32_t)
@@ -230,17 +252,17 @@ export class Vec3 extends NativeStruct {
     @nativeField(float32_t)
     z:float32_t;
 
-    set(pos:Vec3|BlockPos|{x:number, y:number, z:number}):void {
+    set(pos:Vec3|BlockPos|VectorXYZ):void {
         this.x = pos.x;
         this.y = pos.y;
         this.z = pos.z;
     }
 
-    distance(pos:Vec3|BlockPos|{x:number, y:number, z:number}):number {
+    distance(pos:Vec3|BlockPos|VectorXYZ):number {
         return Math.sqrt(this.distanceSq(pos));
     }
 
-    distanceSq(pos:Vec3|BlockPos|{x:number, y:number, z:number}):number {
+    distanceSq(pos:Vec3|BlockPos|VectorXYZ):number {
         const xdist = (this.x - pos.x);
         const ydist = (this.y - pos.y);
         const zdist = (this.z - pos.z);
@@ -330,8 +352,9 @@ export class Vec3 extends NativeStruct {
 
     static create(pos: Vec3): Vec3;
     static create(pos: BlockPos): Vec3;
+    static create(pos: VectorXYZ): Vec3;
     static create(x:number, y:number, z:number):Vec3;
-    static create(a:number|BlockPos|Vec3, b?:number, c?:number):Vec3 {
+    static create(a:number|VectorXYZ, b?:number, c?:number):Vec3 {
         const v = new Vec3(true);
         if(typeof a === 'number'){
             v.x = a;

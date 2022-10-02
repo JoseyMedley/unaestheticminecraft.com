@@ -7,7 +7,7 @@ import { AbilitiesIndex } from "bdsx/bds/abilities";
 import { Actor, ActorType, DimensionId, ItemActor } from "bdsx/bds/actor";
 import { AttributeId } from "bdsx/bds/attribute";
 import { Block } from "bdsx/bds/block";
-import { BlockPos, RelativeFloat } from "bdsx/bds/blockpos";
+import { BlockPos, RelativeFloat, Vec3 } from "bdsx/bds/blockpos";
 import { CommandContext, CommandPermissionLevel } from "bdsx/bds/command";
 import { JsonValue } from "bdsx/bds/connreq";
 import { CxxOptionalToUndefUnion } from "bdsx/bds/cxxoptional";
@@ -15,6 +15,7 @@ import { HashedString } from "bdsx/bds/hashedstring";
 import { ItemStack, NetworkItemStackDescriptor } from "bdsx/bds/inventory";
 import { ByteArrayTag, ByteTag, CompoundTag, DoubleTag, EndTag, FloatTag, Int64Tag, IntArrayTag, IntTag, ListTag, NBT, ShortTag, StringTag, Tag } from "bdsx/bds/nbt";
 import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
+import { Packet } from "bdsx/bds/packet";
 import { MinecraftPacketIds } from "bdsx/bds/packetids";
 import { AttributeData, ModalFormResponsePacket, PacketIdToType } from "bdsx/bds/packets";
 import { Player, PlayerPermission, SimulatedPlayer } from "bdsx/bds/player";
@@ -51,6 +52,12 @@ let chatCancelCounter = 0;
 const OverworldDimension$vftable = proc['??_7OverworldDimension@@6BIDimension@@@'];
 
 type PromiseFunc = ()=>Promise<PromiseFunc>;
+
+const INT32_MIN = 0x80000000;
+const INT32_MAX= 0x7FFFFFFF;
+
+const FLOAT32_MIN = -3.40282347e38;
+const FLOAT32_MAX = 3.40282347e38;
 
 function checkCommandRegister(tester:Tester, testname:string, testcases:[CommandParameterType<any>|[CommandParameterType<any>, CommandFieldOptions|boolean], string|null, any][], opts:{throughConsole?:boolean,noRun?:boolean}={}):Promise<PromiseFunc> {
     const paramsobj:Record<string, CommandParameterType<any>|[CommandParameterType<any>, CommandFieldOptions|boolean]> = {};
@@ -159,16 +166,7 @@ Tester.concurrency({
             'serverInstance is not ServerInstance');
         const networkHandler = bedrockServer.networkHandler;
         this.assert(!!networkHandler && networkHandler.isNotNull(), 'networkHandler not found');
-        this.assert(networkHandler.vftable.equalsptr(proc['??_7NetworkHandler@@6BIGameConnectionInfoProvider@Social@@@']),
-            'networkHandler is not NetworkHandler');
-        this.assert(bedrockServer.minecraft.vftable.equalsptr(proc['??_7Minecraft@@6B@']), 'minecraft is not Minecraft');
         this.assert(bedrockServer.commandOutputSender.vftable.equalsptr(proc['??_7CommandOutputSender@@6B@']), 'sender is not CommandOutputSender');
-
-        this.assert(networkHandler.instance.vftable.equalsptr(proc["??_7RakNetInstance@@6BConnector@@@"]),
-            'networkHandler.instance is not RaknetInstance');
-
-        this.assert(networkHandler.instance.peer.vftable.equalsptr(proc["??_7RakPeer@RakNet@@6BRakPeerInterface@1@@"]),
-            'networkHandler.instance.peer is not RakNet::RakPeer');
 
         const shandle = bedrockServer.serverNetworkHandler;
         shandle.setMotd('TestMotd');
@@ -594,7 +592,9 @@ Tester.concurrency({
             if (cmd === '/__dummy_command') {
                 passed = origin === 'Server';
                 this.assert(ctx.origin.vftable.equalsptr(proc['??_7ServerCommandOrigin@@6B@']), 'invalid origin');
-                this.assert(ctx.origin.getDimension().vftable.equalsptr(OverworldDimension$vftable), 'invalid dimension');
+                const dimension = ctx.origin.getDimension();
+                this.assert(dimension.vftable.equalsptr(OverworldDimension$vftable), 'invalid dimension');
+                this.equals(dimension.getDefaultBiomeString(), 'ocean', 'invalid getDefaultBiomeString');
                 const pos = ctx.origin.getWorldPosition();
                 this.assert(pos.x === 0 && pos.y === 0 && pos.z === 0, 'world pos is not zero');
                 const actor = ctx.origin.getEntity();
@@ -696,41 +696,46 @@ Tester.concurrency({
     },
 
     async checkPacketNames() {
-        const wrongNames = new Map<string, string | string[]>([
-            ['', ['UpdateTradePacket', 'UpdateEquipPacket']],
-            ['ShowModalFormPacket', 'ModalFormRequestPacket'],
-            ['SpawnParticleEffect', 'SpawnParticleEffectPacket'],
-            ['ResourcePacksStackPacket', 'ResourcePackStackPacket'],
-            ['PositionTrackingDBServerBroadcast', 'PositionTrackingDBServerBroadcastPacket'],
-            ['PositionTrackingDBClientRequest', 'PositionTrackingDBClientRequestPacket'],
-            ['NPCDialoguePacket', 'NpcDialoguePacket'],
-            ['AddEntityPacket', 'AddEntity'],
-            ['EduUriResource', 'EduUriResourcePacket'],
-            ['CreatePhoto', 'CreatePhotoPacket'],
-            ['UpdateSubChunkBlocks', 'UpdateSubChunkBlocksPacket'],
-            ['ItemStackRequest', 'ItemStackRequestPacket'],
-            ['ItemStackResponse', 'ItemStackResponsePacket'],
-            ['MapItemDataPacket', 'ClientboundMapItemData']
+        const wrongNames = new Map<string, string|null>([
+            ['UpdateTradePacket', ''],
+            ['UpdateEquipPacket', ''],
+            ['ModalFormRequestPacket', 'ShowModalFormPacket'],
+            ['SpawnParticleEffectPacket', 'SpawnParticleEffect'],
+            ['ResourcePackStackPacket', 'ResourcePacksStackPacket'],
+            ['PositionTrackingDBServerBroadcastPacket', 'PositionTrackingDBServerBroadcast'],
+            ['PositionTrackingDBClientRequestPacket', 'PositionTrackingDBClientRequest'],
+            ['NpcDialoguePacket', 'NPCDialoguePacket'],
+            ['AddEntity', 'AddEntityPacket'],
+            ['ItemStackRequestPacket', 'ItemStackRequest'],
+            ['ItemStackResponsePacket', 'ItemStackResponse'],
+            ['ClientboundMapItemData', 'MapItemDataPacket'],
+            ['AdventureSettingsPacket', null],
         ]);
 
         for (const id in PacketIdToType) {
             try {
                 const Packet = PacketIdToType[+id as keyof PacketIdToType];
-                const packet = Packet.allocate();
+                let expected = wrongNames.get(Packet.name);
 
-                let getNameResult = packet.getName();
-                const realname = wrongNames.get(getNameResult);
-                let name = Packet.name;
-
-                if (Array.isArray(realname)) {
-                    getNameResult = realname.find((v) => v === name) ?? getNameResult;
-                } else if (realname != null) {
-                    getNameResult = realname;
+                let packet:Packet;
+                try {
+                    packet = Packet.allocate();
+                } catch (err) {
+                    if (err.message.endsWith(' is not created')) {
+                        this.equals(expected, null, err.message);
+                        continue;
+                    } else {
+                        throw err;
+                    }
                 }
 
-                this.equals(getNameResult, name);
+                let getNameResult = packet.getName();
+                if (expected === undefined) expected = Packet.name;
+
+                this.equals(getNameResult, expected);
                 this.equals(packet.getId(), Packet.ID);
 
+                let name = Packet.name;
                 const idx = name.lastIndexOf('Packet');
                 if (idx !== -1) name = name.substr(0, idx) + name.substr(idx+6);
                 this.equals(MinecraftPacketIds[Packet.ID], name);
@@ -1180,6 +1185,31 @@ Tester.concurrency({
         this.equals(Block.create('minecraft:_no_block_'), null, 'minecraft:_no_block_ is not null');
         this.assert(Block.create('dirt')!.equalsptr(Block.create('dirt')), 'dirt is not dirt');
         this.assert(!Block.create('planks', 0)!.equalsptr(Block.create('planks', 1)), 'planks#0 is planks#1');
+    },
+
+    blockPos() {
+        this.assert(BlockPos.MIN.equal(BlockPos.create(INT32_MIN, INT32_MIN, INT32_MIN)), "Broken BlockPos.MIN");
+        this.assert(BlockPos.MAX.equal(BlockPos.create(INT32_MAX, INT32_MAX, INT32_MAX)), "Broken BlockPos.MAX");
+
+        this.assert(BlockPos.ZERO.equal(BlockPos.create(0, 0, 0)), "Broken BlockPos.ZERO");
+        this.assert(BlockPos.ONE.equal(BlockPos.create(1, 1, 1)), "Broken BlockPos.ONE");
+
+        this.assert(Vec3.MIN.equal(Vec3.create(FLOAT32_MIN, FLOAT32_MIN, FLOAT32_MIN)), "Broken Vec3.MIN");
+        this.assert(Vec3.MAX.equal(Vec3.create(FLOAT32_MAX, FLOAT32_MAX, FLOAT32_MAX)), "Broken Vec3.MAX");
+
+        this.assert(Vec3.ZERO.equal(Vec3.create(0, 0, 0)), "Broken Vec3.ZERO");
+        this.assert(Vec3.HALF.equal(Vec3.create(0.5, 0.5, 0.5)), "Broken Vec3.HALF");
+        this.assert(Vec3.ONE.equal(Vec3.create(1, 1, 1)), "Broken Vec3.ONE");
+        this.assert(Vec3.TWO.equal(Vec3.create(2, 2, 2)), "Broken Vec3.TWO");
+
+        this.assert(Vec3.UNIT_X.equal(Vec3.create(1, 0, 0)), "Broken Vec3.UNIT_X");
+        this.assert(Vec3.NEG_UNIT_X.equal(Vec3.create(-1, 0, 0)), "Broken Vec3.NEG_UNIT_X");
+
+        this.assert(Vec3.UNIT_Y.equal(Vec3.create(0, 1, 0)), "Broken Vec3.UNIT_Y");
+        this.assert(Vec3.NEG_UNIT_Y.equal(Vec3.create(0, -1, 0)), "Broken Vec3.NEG_UNIT_Y");
+
+        this.assert(Vec3.UNIT_Z.equal(Vec3.create(0, 0, 1)), "Broken Vec3.UNIT_Z");
+        this.assert(Vec3.NEG_UNIT_Z.equal(Vec3.create(0, 0, -1)), "Broken BlockPos.NEG_UNIT_Z");
     },
 
     blob() {

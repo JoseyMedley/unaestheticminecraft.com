@@ -7,7 +7,7 @@ import { StaticPointer, VoidPointer } from "../core";
 import { CxxVector } from "../cxxvector";
 import { events } from '../event';
 import { mangle } from "../mangle";
-import { AbstractClass, nativeClass, NativeClass, nativeField, NativeStruct } from "../nativeclass";
+import { AbstractClass, nativeClass, NativeClass, nativeClassUtil, nativeField, NativeStruct } from "../nativeclass";
 import { bin64_t, bool_t, CxxString, float32_t, int32_t, int64_as_float_t, uint8_t } from "../nativetype";
 import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
 import type { BlockSource } from "./block";
@@ -820,8 +820,8 @@ export class Actor extends AbstractClass {
      *
      * @deprecated bedrock scripting API is removed.
      */
-    getEntity():IEntity {
-        let entity:IEntity = (this as any).entity;
+    getEntity():any {
+        let entity:any = (this as any).entity;
         if (entity) return entity;
         entity = {
             __unique_id__:{
@@ -1078,19 +1078,17 @@ export class Actor extends AbstractClass {
      * Gets the entity from entity component of bedrock scripting api
      * @deprecated bedrock scripting API is removed.
      */
-    static fromEntity(entity:IEntity, getRemovedActor:boolean = true):Actor|null {
-        const u = entity.__unique_id__;
+    static fromEntity(entity:unknown, getRemovedActor:boolean = true):Actor|null {
+        const u = (entity as any).__unique_id__;
         return Actor.fromUniqueId(u["64bit_low"], u["64bit_high"], getRemovedActor);
     }
     static all():IterableIterator<Actor> {
         abstract();
     }
-    _toJsonOnce(allocator:()=>Record<string, any>):Record<string, any> {
-        return CircularDetector.check(this, allocator, obj=>{
-            obj.name = this.getName();
-            obj.pos = this.getPosition();
-            obj.type = this.getEntityTypeId();
-        });
+    [nativeClassUtil.inspectFields](obj:Record<string, any>):void {
+        obj.name = this.getName();
+        obj.pos = this.getPosition();
+        obj.type = this.getEntityTypeId();
     }
     runCommand(command:string, mute:CommandResultType = true, permissionLevel?:CommandPermissionLevel): CommandResult<CommandResult.Any> {
         abstract();
