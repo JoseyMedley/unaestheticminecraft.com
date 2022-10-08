@@ -61,8 +61,16 @@ export class Player extends Mob {
 
     /**
      * Returns the player's inventory proxy
+     * @alias getSupplies
      */
     getInventory(): PlayerInventory {
+        abstract();
+    }
+
+    /**
+     * Returns the player's inventory proxy
+     */
+    getSupplies(): PlayerInventory {
         abstract();
     }
 
@@ -144,10 +152,6 @@ export class Player extends Mob {
         abstract();
     }
 
-    /**
-     * Syncs the player's abilities with the client
-     * @deprecated AdventureSettingsPacket removed, not working now
-     */
     syncAbilities(): void {
         abstract();
     }
@@ -496,7 +500,7 @@ interface RawTextObject {
 export class ServerPlayer extends Player implements HasStorage {
     static readonly [Storage.classId] = 'player';
     [Storage.id]():string { return mce.UUID.toString(this.getUuid()); }
-    [Storage.aliasId]():string { return '_'+this.getName(); }
+    [Storage.aliasId]():string { return '_'+this.getNameTag(); }
 
     /** @deprecated Use `this.getNetworkIdentifier()` instead */
     get networkIdentifier(): NetworkIdentifier {
