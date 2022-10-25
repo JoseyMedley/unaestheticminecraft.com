@@ -1,4 +1,4 @@
-import { abstract, BuildPlatform, VectorXYZ } from "../common";
+import { abstract, BuildPlatform, VectorXYZ, Direction } from "../common";
 import { mce } from "../mce";
 import { float32_t } from "../nativetype";
 import { HasStorage, Storage } from "../storage";
@@ -473,6 +473,26 @@ export class Player extends Mob {
      * */
     setSelecetdSlot(slot: number): ItemStack {
         return this.setSelectedSlot(slot);
+    }
+
+    getDirection(): Direction.Type {
+        abstract();
+    }
+
+    isFlying(): boolean {
+        abstract();
+    }
+
+    isHiddenFrom(source: Mob): boolean {
+        abstract();
+    }
+
+    isInRaid(): boolean {
+        abstract();
+    }
+
+    isUsingItem(): boolean {
+        abstract();
     }
 }
 

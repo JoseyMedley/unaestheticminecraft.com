@@ -200,7 +200,7 @@ export class Level extends NativeClass {
     /**
      * Returns a random Player
      */
-    getRandomPlayer(): Player {
+    getRandomPlayer(): Player | null {
         abstract();
     }
     /**
@@ -230,7 +230,16 @@ export class Level extends NativeClass {
     setDifficulty(difficulty:Difficulty): void {
         abstract();
     }
+
     getNewUniqueID(): ActorUniqueID {
+        abstract();
+    }
+
+    getNextRuntimeID(): ActorRuntimeID {
+        abstract();
+    }
+
+    sendAllPlayerAbilities(player: Player): void {
         abstract();
     }
 }

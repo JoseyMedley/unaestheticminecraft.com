@@ -1276,6 +1276,23 @@ export class Actor extends AbstractClass {
     getLastDeathDimension(): CxxOptional<DimensionId> {
         abstract();
     }
+
+    protected _getViewVector(unused: float32_t): Vec3 {
+        abstract();
+    }
+
+    getViewVector(): Vec3 {
+        // it yields the same output as other values
+        return this._getViewVector(0.0);
+    }
+
+    isImmobile(): boolean {
+        abstract();
+    }
+
+    isSwimming(): boolean {
+        abstract();
+    }
 }
 mangle.update(Actor);
 
@@ -1350,6 +1367,10 @@ export class Mob extends Actor {
         abstract();
     }
     getToughnessValue(): int32_t {
+        abstract();
+    }
+
+    isBlocking(): boolean {
         abstract();
     }
 }
