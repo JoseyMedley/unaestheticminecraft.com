@@ -1,4 +1,4 @@
-import { abstract, BuildPlatform, VectorXYZ } from "../common";
+import { abstract, BuildPlatform, VectorXYZ, Direction } from "../common";
 import { mce } from "../mce";
 import { float32_t } from "../nativetype";
 import { HasStorage, Storage } from "../storage";
@@ -61,8 +61,16 @@ export class Player extends Mob {
 
     /**
      * Returns the player's inventory proxy
+     * @alias getSupplies
      */
     getInventory(): PlayerInventory {
+        abstract();
+    }
+
+    /**
+     * Returns the player's inventory proxy
+     */
+    getSupplies(): PlayerInventory {
         abstract();
     }
 
@@ -113,17 +121,6 @@ export class Player extends Mob {
     }
 
     /**
-     * Changes the player's size
-     * @remarks This function does not update the player's skin size.
-     *
-     * @param width - New width
-     * @param height - New height
-     */
-    setSize(width: number, height: number): void {
-        abstract();
-    }
-
-    /**
      * Sets the player's sleeping status
      */
     setSleeping(value: boolean): void {
@@ -144,10 +141,6 @@ export class Player extends Mob {
         abstract();
     }
 
-    /**
-     * Syncs the player's abilities with the client
-     * @deprecated AdventureSettingsPacket removed, not working now
-     */
     syncAbilities(): void {
         abstract();
     }
@@ -470,6 +463,26 @@ export class Player extends Mob {
     setSelecetdSlot(slot: number): ItemStack {
         return this.setSelectedSlot(slot);
     }
+
+    getDirection(): Direction.Type {
+        abstract();
+    }
+
+    isFlying(): boolean {
+        abstract();
+    }
+
+    isHiddenFrom(source: Mob): boolean {
+        abstract();
+    }
+
+    isInRaid(): boolean {
+        abstract();
+    }
+
+    isUsingItem(): boolean {
+        abstract();
+    }
 }
 
 namespace RawTextObject {
@@ -496,7 +509,7 @@ interface RawTextObject {
 export class ServerPlayer extends Player implements HasStorage {
     static readonly [Storage.classId] = 'player';
     [Storage.id]():string { return mce.UUID.toString(this.getUuid()); }
-    [Storage.aliasId]():string { return '_'+this.getName(); }
+    [Storage.aliasId]():string { return '_'+this.getNameTag(); }
 
     /** @deprecated Use `this.getNetworkIdentifier()` instead */
     get networkIdentifier(): NetworkIdentifier {

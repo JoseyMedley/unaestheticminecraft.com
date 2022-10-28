@@ -3,17 +3,19 @@ import * as child_process from 'child_process';
 import * as colors from 'colors';
 import { https } from 'follow-redirects';
 import * as fs from 'fs';
+import * as JSZip from 'jszip';
 import * as path from 'path';
 import * as readline from 'readline';
 import * as unzipper from 'unzipper';
 import { fsutil } from '../fsutil';
 import { progressBar } from '../progressbar';
 import { printOnProgress } from '../util';
+import { key } from '../util/key';
 import * as BDS_VERSION_DEFAULT from '../version-bds.json';
 import * as BDSX_CORE_VERSION_DEFAULT from '../version-bdsx.json';
 import { InstallInfo } from './installinfo';
+import { GitHubClient } from './publisher';
 
-const BDSX_YES = process.env.BDSX_YES;
 const sep = path.sep;
 
 const BDS_LINK_DEFAULT = 'https://minecraft.azureedge.net/bin-win/bedrock-server-%BDS_VERSION%.zip';
@@ -59,7 +61,28 @@ export class BDSInstaller {
     public readonly info:InstallInfo;
     public target:string;
 
-    constructor(public readonly bdsPath:string, public readonly agreeOption:boolean) {
+    constructor(public readonly bdsPath:string, public readonly opts:BDSInstaller.Options) {
+        const BDSX_YES = process.env.BDSX_YES;
+        if (BDSX_YES !== undefined) {
+            switch (BDSX_YES.toLowerCase()) {
+            case 'y':
+            case 'yes':
+            case 'true':
+                if (opts.agree === undefined) opts.agree = `BDSX_YES=${BDSX_YES}`;
+                break;
+            case 'n':
+            case 'no':
+            case 'false':
+                if (opts.disagree === undefined) opts.disagree = `BDSX_YES=${BDSX_YES}`;
+                break;
+            case 'skip':
+                if (opts.skip === undefined) opts.skip = `BDSX_YES=${BDSX_YES}`;
+                break;
+            }
+            if (typeof opts.agree === 'boolean') opts.agree = opts.agree ? 'agree=true' : undefined;
+            if (typeof opts.disagree === 'boolean') opts.disagree = opts.disagree ? 'disagree=true' : undefined;
+            if (typeof opts.skip === 'boolean') opts.skip = opts.skip ? 'skip=true' : undefined;
+        }
         this.info = new InstallInfo(bdsPath);
     }
 
@@ -68,14 +91,15 @@ export class BDSInstaller {
         const noValues  = [ 'no', 'n' ];
 
         return new Promise<boolean>(resolve=>{
-            if (BDSX_YES === 'false') {
-                return resolve(false);
-            }
-            if (!process.stdin.isTTY || BDSX_YES === 'true') {
+            if (this.opts.agree !== undefined) {
+                console.log(`Agreed by ${this.opts.agree}`);
                 return resolve(true);
             }
-            if (this.agreeOption) {
-                console.log('Agreed by -y');
+            if (this.opts.disagree !== undefined) {
+                console.log(`Disagreed by ${this.opts.disagree}`);
+                return resolve(false);
+            }
+            if (!process.stdin.isTTY) {
                 return resolve(true);
             }
 
@@ -125,6 +149,13 @@ export class BDSInstaller {
     }
 }
 
+export namespace BDSInstaller {
+    export interface Options {
+        agree?:string|boolean;
+        disagree?:string|boolean;
+        skip?:string|boolean;
+    }
+}
 interface InstallItemOptions {
     name:string;
     key?:keyof InstallInfo;
@@ -264,7 +295,6 @@ class InstallItem {
         const keyExists = keyFile != null && await fsutil.exists(path.join(installer.target, keyFile));
         const keyNotFound = keyFile != null && !keyExists;
         const version = installer.info[key];
-
         if (version === undefined) {
             if (keyExists) {
                 if (await installer.yesno(`${name}: Would you like to use what already installed?`)) {
@@ -273,11 +303,11 @@ class InstallItem {
                     return;
                 }
             }
-            this._confirmAndInstall(installer);
+            await this._confirmAndInstall(installer);
         } else {
             if (keyNotFound) {
                 console.log(colors.yellow(`${name}: ${keyFile} not found`));
-                this._confirmAndInstall(installer);
+                await this._confirmAndInstall(installer);
             } else {
                 if (version === null || version === 'manual') {
                     console.log(`${name}: manual`);
@@ -302,7 +332,7 @@ const pdbcache = new InstallItem({
     targetPath: '.',
     key: 'pdbcacheVersion',
     keyFile: 'pdbcache.bin',
-    fallback(installer, statusCode) {
+    async fallback(installer, statusCode) {
         if (statusCode !== 404) return;
         console.error(colors.yellow(`pdbcache-${BDS_VERSION} does not exist on the server`));
         console.error(colors.yellow('Generate through pdbcachegen.exe'));
@@ -311,6 +341,24 @@ const pdbcache = new InstallItem({
         const bedrockserver = path.join(installer.bdsPath, 'bedrock_server.exe');
         const res = child_process.spawnSync(pdbcachegen, [bedrockserver, pdbcachebin], {stdio:'inherit'});
         if (res.status !== 0) throw new MessageError(`Failed to generate pdbcache`);
+
+        const githubToken = await key.getGithubToken();
+        if (githubToken !== undefined) {
+            // zip file
+            const cachePath = path.join(installer.bdsPath, 'pdbcache.bin');
+            const zipPath = path.join(installer.bdsPath, 'pdbcache.zip');
+            const zip = new JSZip;
+            zip.file('pdbcache.bin', await fsutil.readFile(cachePath, null));
+            await fsutil.writeStream(zipPath, zip.generateNodeStream({
+                compression: "DEFLATE",
+            }));
+
+            // create release
+            console.error(colors.yellow('publish pdbcache.bin'));
+            const client = new GitHubClient(githubToken);
+            const release = await client.createRelease('bdsx', 'pdbcache', BDS_VERSION);
+            await release.upload(zipPath);
+        }
         return false;
     },
 });
@@ -351,12 +399,12 @@ const bdsxCore = new InstallItem({
     oldFiles: ['mods', 'Chakra.pdb'],
 });
 
-export async function installBDS(bdsPath:string, agreeOption:boolean = false):Promise<boolean> {
-    if (BDSX_YES === 'skip') {
+export async function installBDS(bdsPath:string, opts:BDSInstaller.Options):Promise<boolean> {
+    const installer = new BDSInstaller(bdsPath, opts);
+    if (opts.skip !== undefined) {
+        console.log(`Skipped by ${opts.skip}`);
         return true;
     }
-
-    const installer = new BDSInstaller(bdsPath, agreeOption);
     await installer.info.load();
     try {
         await bds.install(installer);

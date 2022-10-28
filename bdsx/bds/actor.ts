@@ -23,8 +23,9 @@ import { CompoundTag, NBT } from "./nbt";
 import type { NetworkIdentifier } from "./networkidentifier";
 import { Packet } from "./packet";
 import type { Player, ServerPlayer, SimulatedPlayer } from "./player";
+import { proc } from './symbols';
 
-export const ActorUniqueID = bin64_t.extends();
+export const ActorUniqueID = bin64_t.extends({ INVALID_ID: proc["?INVALID_ID@ActorUniqueID@@2U1@B"].getBin64() });
 export type ActorUniqueID = bin64_t;
 
 export enum DimensionId { // int32_t
@@ -688,8 +689,15 @@ export class Actor extends AbstractClass {
     }
     /**
      * Returns the entity's name
+     * @deprecated use getNameTag() instead
      */
     getName():string {
+        return this.getNameTag();
+    }
+    /**
+     * Returns the entity's name
+     */
+    getNameTag():string {
         abstract();
     }
 
@@ -1086,7 +1094,7 @@ export class Actor extends AbstractClass {
         abstract();
     }
     [nativeClassUtil.inspectFields](obj:Record<string, any>):void {
-        obj.name = this.getName();
+        obj.name = this.getNameTag();
         obj.pos = this.getPosition();
         obj.type = this.getEntityTypeId();
     }
@@ -1268,6 +1276,34 @@ export class Actor extends AbstractClass {
     getLastDeathDimension(): CxxOptional<DimensionId> {
         abstract();
     }
+
+    protected _getViewVector(unused: float32_t): Vec3 {
+        abstract();
+    }
+
+    getViewVector(): Vec3 {
+        // it yields the same output as other values
+        return this._getViewVector(0.0);
+    }
+
+    isImmobile(): boolean {
+        abstract();
+    }
+
+    isSwimming(): boolean {
+        abstract();
+    }
+
+    /**
+     * Changes the actor's size
+     * @remarks This function does not update the actor's skin size.
+     *
+     * @param width - New width
+     * @param height - New height
+     */
+    setSize(width: number, height: number): void {
+        abstract();
+    }
 }
 mangle.update(Actor);
 
@@ -1342,6 +1378,10 @@ export class Mob extends Actor {
         abstract();
     }
     getToughnessValue(): int32_t {
+        abstract();
+    }
+
+    isBlocking(): boolean {
         abstract();
     }
 }

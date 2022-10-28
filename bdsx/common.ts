@@ -14,6 +14,18 @@ import './polyfill';
 export const CANCEL = Symbol('CANCEL');
 export type CANCEL = typeof CANCEL;
 
+/**
+ * Discovered by checking locator on a map
+ */
+export namespace Direction {
+	export enum Type {
+        South = 0,
+        West = 1,
+        North = 2,
+        East = 3,
+    }
+}
+
 export enum AttributeName {
 	ZombieSpawnReinforcementsChange="minecraft:zombie.spawn.reinforcements",
 	PlayerHunger="minecraft:player.hunger",
