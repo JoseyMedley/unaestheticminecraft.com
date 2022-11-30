@@ -1,12 +1,46 @@
-import * as ts from "typescript";
-import * as glob from 'glob';
+import * as colors from 'colors';
 import * as fs from 'fs';
+import * as glob from 'glob';
+import * as ts from "typescript";
 import { shellPrepareData } from "./data";
 
 const BDSX_PERMANENT = process.env.BDSX_PERMANENT === 'true';
 const RESTART_TIME_THRESHOLD = 30000;
 
 const data = shellPrepareData.load();
+
+function unsupportedNodeJs():never {
+    console.error(colors.red(`Unsupported node.js version`));
+    console.error(colors.red(`current: ${process.version}`));
+    console.error(colors.red(`required: v8.1`));
+    throw Error(`Unsupported node.js version ${process.version}`);
+}
+
+function getModifiedFiles(files:string[]):string[] {
+    const newFiles:string[] = [];
+    for (const ts of files) {
+        if (!ts.endsWith('.ts')) continue;
+        if (ts.endsWith('.d.ts')) continue;
+        const js = ts.substr(0, ts.length-2)+'js';
+        const ts_stat = fs.statSync(ts);
+        if (ts_stat.mtimeMs === undefined) {
+            unsupportedNodeJs();
+        }
+        try {
+            const js_stat = fs.statSync(js);
+            if (ts_stat.mtimeMs >= js_stat.mtimeMs) {
+                newFiles.push(ts);
+            }
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                newFiles.push(ts);
+            } else {
+                throw err;
+            }
+        }
+    }
+    return newFiles;
+}
 
 function build():void {
     function getTsConfig():ts.ParsedCommandLine {
@@ -15,7 +49,9 @@ function build():void {
         if (configPath == null) {
             return {
                 options: ts.getDefaultCompilerOptions(),
-                fileNames: glob.sync('**/*.ts'),
+                fileNames: glob.sync('**/*.ts', {
+                    ignore: ['node_modules/**/*', '**/*.d.ts'],
+                }),
                 errors: [],
             };
         }
@@ -23,29 +59,29 @@ function build():void {
         return ts.parseJsonConfigFileContent(configFileJson.config, ts.sys, curdir);
     }
 
-    const config = getTsConfig();
-    let files:string[];
-    if (config.options.outDir == null && config.options.outFile == null && config.options.out == null) {
-        files = [];
-        for (const ts of config.fileNames) {
-            if (!ts.endsWith('.ts')) continue;
-            const js = ts.substr(0, ts.length-2)+'js';
-            try {
-                const ts_stat = fs.statSync(ts);
-                const js_stat = fs.statSync(js);
-                if (ts_stat.mtimeMs >= js_stat.mtimeMs) {
-                    files.push(ts);
+    try {
+        const config = getTsConfig();
+        let files:string[];
+        if (config.options.outDir == null && config.options.outFile == null && config.options.out == null) {
+            files = getModifiedFiles(config.fileNames);
+        } else {
+            files = config.fileNames;
+        }
+        if (files.length !== 0) {
+            const res = ts.createProgram(files, config.options).emit();
+            if (res.diagnostics.length !== 0) {
+                if (getModifiedFiles(files).length !== 0) { // some files are not emitted
+                    const compilerHost = ts.createCompilerHost(config.options);
+                    console.error(ts.formatDiagnosticsWithColorAndContext(res.diagnostics, compilerHost));
+                    exit(-1);
+                } else {
+                    // ignore errors if it's emitted anyway.
                 }
-            } catch (err) {
-                files.push(ts);
-                continue;
             }
         }
-    } else {
-        files = config.fileNames;
-    }
-    if (files.length !== 0) {
-        ts.createProgram(files, config.options).emit();
+    } catch (err) {
+        console.error(err.stack);
+        exit(-1);
     }
 }
 

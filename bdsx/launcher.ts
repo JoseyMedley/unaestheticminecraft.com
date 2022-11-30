@@ -23,6 +23,7 @@ import { dll } from "./dll";
 import { events } from "./event";
 import { GetLine } from "./getline";
 import { makefunc } from "./makefunc";
+import { AbstractClass, nativeClass, nativeField } from './nativeclass';
 import { bool_t, CxxString, int32_t, int64_as_float_t, NativeType, void_t } from "./nativetype";
 import { loadAllPlugins } from './plugins';
 import { CxxStringWrapper } from "./pointer";
@@ -166,12 +167,17 @@ function _launch(asyncResolve:()=>void):void {
     }
 
     // replace unicode encoder
+    // int Core::StringConversions::toWide(char const *, int, wchar_t *, int)
+    const StringConversions$toWide = '?toWide@StringConversions@Core@@SAHPEBDHPEA_WH@Z';
+    // int Core::StringConversions::toUtf8(wchar_t const *, int, char *, int)
+    const StringConversions$toUtf8 = '?toUtf8@StringConversions@Core@@SAHPEB_WHPEADH@Z';
+    proc[StringConversions$toWide];
+    proc[StringConversions$toUtf8];
     if (Config.REPLACE_UNICODE_ENCODER) {
-        asmcode.Core_String_toWide_string_span = cgate.toWide;
-        procHacker.write('?toWide@String@Core@@SA?AV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@std@@PEBD@Z', 0,
-            asm().jmp64(asmcode.Core_String_toWide_charptr, Register.rax));
-        procHacker.write('?toWide@String@Core@@SA?AV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@std@@V?$basic_string_span@$$CBD$0?0@gsl@@@Z', 0,
+        procHacker.write(StringConversions$toWide, 0,
             asm().jmp64(cgate.toWide, Register.rax));
+        procHacker.write(StringConversions$toUtf8, 0,
+            asm().jmp64(cgate.toUtf8, Register.rax));
     }
 
     // events
@@ -263,7 +269,7 @@ function _launch(asyncResolve:()=>void):void {
 
     procHacker.patching('update-hook',
         '<lambda_9c72527c89bc5df41fe482e4153a365f>::operator()', // caller of ServerInstance::_update
-        0x8c6, asmcode.updateWithSleep, Register.rax, true, [
+        0x8cc, asmcode.updateWithSleep, Register.rax, true, [
             0x48, 0x2B, 0xC8,                         // sub rcx,rax
             0x48, 0x81, 0xF9, 0x88, 0x13, 0x00, 0x00, // cmp rcx,1388
             0x7C, 0x0B,                               // jl bedrock_server.7FF743BA7B50
@@ -308,7 +314,8 @@ function _launch(asyncResolve:()=>void):void {
                 const rakPeer = RakNetInstance$getPeer(raknetInstance);
                 bdsxEqualsAssert(rakPeer.vftable, proc["??_7RakPeer@RakNet@@6BRakPeerInterface@1@@"], 'Invalid rakPeer');
                 const commandOutputSender = (minecraftCommands as any as StaticPointer).getPointerAs(CommandOutputSender, 0x8);
-                const serverNetworkHandler = nonOwnerPointerServerNetworkHandler.get();
+                const serverNetworkHandler = nonOwnerPointerServerNetworkHandler.get()!.subAs(nimodule.ServerNetworkHandler, 0x10); // XXX: unknown state. cut corners.
+                bdsxEqualsAssert(serverNetworkHandler.vftable, proc['??_7ServerNetworkHandler@@6BEnableQueueForMainThread@Threading@Bedrock@@@'], 'Invalid serverNetworkHandler');
 
                 Object.defineProperties(bedrockServer, {
                     serverInstance: {value: serverInstance},
@@ -346,11 +353,13 @@ function _launch(asyncResolve:()=>void):void {
         makefunc.np((mc, b)=>{
             events.serverLeave.fire();
         }, void_t, {name: 'hook of Minecraft::startLeaveGame'}, bd_server.Minecraft, bool_t), [Register.rcx, Register.rdx], []);
-    procHacker.hookingRawWithCallOriginal('?sendEvent@ServerInstanceEventCoordinator@@QEAAXAEBV?$EventRef@U?$ServerInstanceGameplayEvent@X@@@@@Z',
-        makefunc.np(()=>{
+    procHacker.hooking('?sendEvent@ServerInstanceEventCoordinator@@QEAAXAEBV?$EventRef@U?$ServerInstanceGameplayEvent@X@@@@@Z',
+        void_t, {name: 'hook of shutdown'}, VoidPointer, EventRef$ServerInstanceGameplayEvent$Void)((_this, ev)=>{
+        if (ev.type === GameplayEvent.Stop) {
             events.serverStop.fire();
             _tickCallback();
-        }, void_t, {name: 'hook of shutdown'}), [Register.rcx, Register.rdx], []);
+        }
+    });
 
     // graceful kill for Network port occupied
     // BDS crashes at terminating on `Network port occupied`. it kills the crashing thread and keeps the node thread.
@@ -550,4 +559,21 @@ export namespace bedrockServer {
             return stdInHandler = new NativeStdInHandler;
         }
     }
+}
+
+/**
+ * temporal name
+ */
+enum GameplayEvent {
+    Stop,
+    Restart,
+}
+
+/**
+ * temporal name
+ */
+@nativeClass()
+class EventRef$ServerInstanceGameplayEvent$Void extends AbstractClass {
+    @nativeField(int32_t)
+    type:GameplayEvent;
 }

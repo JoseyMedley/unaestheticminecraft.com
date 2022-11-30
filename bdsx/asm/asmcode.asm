@@ -416,6 +416,10 @@ export proc returnRcx
     mov rax, rcx
 endp
 
+export proc returnZero
+    xor eax, eax
+endp
+
 ; BDS hooks
 export def CommandOutputSenderHookCallback:qword
 export proc CommandOutputSenderHook
@@ -510,7 +514,7 @@ export def enabledPacket:byte[256]
 export proc packetRawHook
     ; r14 - packetId
     lea rax, enabledPacket
-    mov al, byte ptr[rax+r15]
+    mov al, byte ptr[rax+r14]
     unwind
     test al, al
     jz _skipEvent
@@ -520,7 +524,7 @@ export proc packetRawHook
     jmp onPacketRaw
  _skipEvent:
     mov edx, r14d
-    lea rcx, [rbp+0x78] ; packet
+    lea rcx, [rbp-0x10] ; packet
     jmp createPacketRaw
 endp
 
@@ -572,7 +576,7 @@ export proc packetAfterHook
 
     ; orignal codes
     mov rdx, r13
-    mov rcx, [rbp+78h] ; packet
+    mov rcx, [rbp-10h] ; packet
     call handlePacket
 
     lea r10, enabledPacket
@@ -580,7 +584,7 @@ export proc packetAfterHook
     unwind
     test al, al
     jz _skipEvent
-    mov rcx, [rbp+78h] ; packet
+    mov rcx, [rbp-10h] ; packet
     mov rdx, r13 ; NetworkIdentifier
     jmp onPacketAfter
 _skipEvent:
@@ -724,27 +728,6 @@ _loop:
 
     ; goto _loop;
     jmp _loop
-endp
-
-export def Core_String_toWide_string_span:qword
-export proc Core_String_toWide_charptr
-    stack 38h
-    xor eax, eax
-
-    mov r8, rdx
-_strlen:
-    mov al, byte ptr [rdx]
-    add rdx, 1
-    test eax, eax
-    jnz _strlen
-
-    sub rdx, r8
-    sub rdx, 1
-    mov [rsp+10h], rdx ; length
-    mov [rsp+18h], r8 ; data
-
-    lea rdx, [rsp+10h]
-    call Core_String_toWide_string_span
 endp
 
 export def terminate:qword
