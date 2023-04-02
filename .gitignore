@@ -16,4 +16,5 @@ node_modules
 !/bdsx/netevent.js
 !/bdsx/checkgate.js
 !/bdsx/asm/asmcode.js
+!/bedrock_server/deathmsgs.json
 /plugin-example/package-lock.json
