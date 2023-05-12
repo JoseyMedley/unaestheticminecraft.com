@@ -13,7 +13,7 @@ import { JsonValue } from "bdsx/bds/connreq";
 import { CxxOptionalToUndefUnion } from "bdsx/bds/cxxoptional";
 import { Dimension } from "bdsx/bds/dimension";
 import { HashedString } from "bdsx/bds/hashedstring";
-import { ItemStack, NetworkItemStackDescriptor } from "bdsx/bds/inventory";
+import { CreativeItemCategory, ItemStack, NetworkItemStackDescriptor } from "bdsx/bds/inventory";
 import {
     ByteArrayTag,
     ByteTag,
@@ -199,10 +199,10 @@ Tester.concurrency(
         async globals() {
             const serverInstance = bedrockServer.serverInstance;
             this.assert(!!serverInstance && serverInstance.isNotNull(), "serverInstance not found");
-            this.assert(serverInstance.vftable.equalsptr(proc["??_7ServerInstance@@6BEnableNonOwnerReferences@Bedrock@@@"]), "serverInstance is not ServerInstance");
+            this.equals(serverInstance.vftable, proc["??_7ServerInstance@@6BEnableNonOwnerReferences@Bedrock@@@"], "serverInstance is not ServerInstance");
             const networkSystem = bedrockServer.networkSystem;
             this.assert(!!networkSystem && networkSystem.isNotNull(), "networkSystem not found");
-            this.assert(bedrockServer.commandOutputSender.vftable.equalsptr(proc["??_7CommandOutputSender@@6B@"]), "sender is not CommandOutputSender");
+            this.equals(bedrockServer.commandOutputSender.vftable, proc["??_7CommandOutputSender@@6B@"], "sender is not CommandOutputSender");
 
             const shandle = bedrockServer.serverNetworkHandler;
             shandle.setMotd("TestMotd");
@@ -703,7 +703,7 @@ Tester.concurrency(
             const cb = (cmd: string, origin: string, ctx: CommandContext) => {
                 if (cmd === "/__dummy_command") {
                     passed = origin === "Server";
-                    this.assert(ctx.origin.vftable.equalsptr(proc["??_7ServerCommandOrigin@@6B@"]), "invalid origin");
+                    this.equals(ctx.origin.vftable, proc["??_7ServerCommandOrigin@@6B@"], "invalid origin");
                     const dimension = ctx.origin.getDimension();
                     this.assert(isDimensionClass(dimension), "invalid dimension");
                     this.equals(dimension.getDefaultBiomeString(), "ocean", "invalid getDefaultBiomeString");
@@ -712,7 +712,7 @@ Tester.concurrency(
                     const actor = ctx.origin.getEntity();
                     this.assert(actor === null, `origin.getEntity() is not null. result = ${actor}`);
                     const level = ctx.origin.getLevel();
-                    this.assert(level.vftable.equalsptr(proc["??_7ServerLevel@@6BILevel@@@"]), "origin.getLevel() is not ServerLevel");
+                    this.equals(level.vftable, proc["??_7ServerLevel@@6BILevel@@@"], "origin.getLevel() is not ServerLevel");
                     const players = level.getPlayers();
                     const size = players.length;
                     this.equals(size, 0, "origin.getLevel().players.size is not zero");
@@ -879,7 +879,7 @@ Tester.concurrency(
 
             {
                 const itemStack = ItemStack.constructWith("minecraft:dirt", 12, 1);
-                this.assert(itemStack.block.equalsptr(Block.create("minecraft:dirt", 1)), "itemStack.block");
+                this.equals(itemStack.block, Block.create("minecraft:dirt", 1), "itemStack.block");
                 this.equals(itemStack.valid, true, "itemStack.vaild");
                 this.equals(itemStack.showPickup, true, "itemStack.showPickup");
                 this.equals(itemStack.canPlaceOn.size(), 0, "itemStack.canPlaceOn");
@@ -1107,6 +1107,7 @@ Tester.concurrency(
                 this.wrap(ev => {
                     const player = ev.player;
                     try {
+                        this.equals(player.playerUIContainer.vftable, proc["??_7PlayerUIContainer@@6B@"], "player.playerUIContainer is broken");
                         const netId = player.getNetworkIdentifier();
                         this.equals(player.deviceId, bedrockServer.serverNetworkHandler.fetchConnectionRequest(netId).getDeviceId(), "player.deviceId is broken");
 
@@ -1206,6 +1207,14 @@ Tester.concurrency(
         etc() {
             const item = ItemStack.constructWith("minecraft:acacia_boat");
             item.destruct();
+
+            const CreativeItemCategoryFromString = procHacker.js("?CreativeItemCategoryFromString@@YA?AW4CreativeItemCategory@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z", int32_t, null, CxxString);
+            this.equals(CreativeItemCategoryFromString("construction"), CreativeItemCategory.Construction);
+            this.equals(CreativeItemCategoryFromString("nature"), CreativeItemCategory.Nature);
+            this.equals(CreativeItemCategoryFromString("equipment"), CreativeItemCategory.Equipment);
+            this.equals(CreativeItemCategoryFromString("items"), CreativeItemCategory.Items);
+            this.equals(CreativeItemCategoryFromString("commands"), CreativeItemCategory.Commands);
+            this.equals(CreativeItemCategoryFromString("none"), CreativeItemCategory.None);
         },
 
         nbt() {
@@ -1311,7 +1320,7 @@ Tester.concurrency(
             );
 
             const nbt_ex = '[3.4028234663852886e+38]';
-            this.equals(NBT.stringify(NBT.parse(nbt_ex)), nbt_ex);
+            this.equals(NBT.stringify(NBT.parse(nbt_ex)), '[3.4028234663852886e+38d]');
         },
 
         itemActor() {
@@ -1321,7 +1330,7 @@ Tester.concurrency(
                     const region = ev.player.getRegion();
                     const actor = Actor.summonAt(region, pos, ActorType.Item, -1);
                     this.assert(actor instanceof ItemActor, "ItemActor summoning");
-                    this.assert((actor as ItemActor).itemStack.vftable.equalsptr(proc["??_7ItemStack@@6B@"]), "ItemActor.itemStack is not ItemStack");
+                    this.equals((actor as ItemActor).itemStack.vftable, proc["??_7ItemStack@@6B@"], "ItemActor.itemStack is not ItemStack");
                     actor.despawn();
                 }),
             );
@@ -1341,8 +1350,8 @@ Tester.concurrency(
             this.equals(Block.create("minecraft:air")?.getName(), "minecraft:air");
             this.equals(Block.create("minecraft:element_111")?.getName(), "minecraft:element_111");
             this.equals(Block.create("minecraft:_no_block_"), null, "minecraft:_no_block_ is not null");
-            this.assert(Block.create("dirt")!.equalsptr(Block.create("dirt")), "dirt is not dirt");
-            this.assert(!Block.create("planks", 0)!.equalsptr(Block.create("planks", 1)), "planks#0 is planks#1");
+            this.equals(Block.create("dirt")!, Block.create("dirt"), "dirt is not dirt");
+            this.notEquals(Block.create("planks", 0)!, Block.create("planks", 1), "planks#0 is planks#1");
         },
 
         blockPos() {

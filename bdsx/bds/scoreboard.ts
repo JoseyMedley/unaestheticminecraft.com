@@ -289,7 +289,7 @@ export class ScoreboardIdentityRef extends NativeClass {
     }
 
     getFakePlayerName(): string {
-        abstract();
+        return this.scoreboardId.identityDef.getFakePlayerName();
     }
 
     getScoreboardId(): ScoreboardId {

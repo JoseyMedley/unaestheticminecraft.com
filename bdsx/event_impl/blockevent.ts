@@ -84,8 +84,11 @@ function onBlockDestroy(gamemode: GameMode, blockPos: BlockPos, face: number): b
      * - fired multiple times if `server-authoritative-block-breaking` is enabled
      * - It has three refs: AgentCommands::DestroyCommand::isDone, GameMode::_canDestroy, GameMode::destroyBlock
      *
-     * Current hooking point - GameMode::destroyBlock
+     * old hooking point - GameMode::destroyBlock
      * - fired with the sword attack of the creative mode user if `server-authoritative-block-breaking` is enabled
+     * - broken on 1.19.80.02
+     *
+     * current hooking point - SurvivalMode::destroyBlock
      */
 
     const blockSource = player.getRegion();
@@ -109,7 +112,7 @@ function onBlockDestroy(gamemode: GameMode, blockPos: BlockPos, face: number): b
         return _onBlockDestroy(gamemode, event.blockPos, face);
     }
 }
-const _onBlockDestroy = procHacker.hooking("?destroyBlock@GameMode@@UEAA_NAEBVBlockPos@@E@Z", bool_t, null, GameMode, BlockPos, uint8_t)(onBlockDestroy);
+const _onBlockDestroy = procHacker.hooking("?destroyBlock@SurvivalMode@@UEAA_NAEBVBlockPos@@E@Z", bool_t, null, GameMode, BlockPos, uint8_t)(onBlockDestroy);
 
 function onBlockDestructionStart(blockEventCoordinator: StaticPointer, player: Player, blockPos: BlockPos): void {
     const event = new BlockDestructionStartEvent(player as ServerPlayer, blockPos);
@@ -388,20 +391,21 @@ const SculkShriekerBlock$_shriek = procHacker.hooking(
 export class SculkSensorActivateEvent {
     constructor(public region: BlockSource, public pos: BlockPos, public entity: Actor | null) {}
 }
-function onSculkSensorActivate(region: BlockSource, pos: BlockPos, entity: Actor | null, unknown: int32_t): void {
+function onSculkSensorActivate(region: BlockSource, pos: BlockPos, entity: Actor | null, unknown: int32_t, unknown2: int32_t): void {
     const event = new SculkSensorActivateEvent(region, pos, entity);
     const canceled = events.sculkSensorActivate.fire(event) === CANCEL;
     decay(region);
     decay(pos);
     if (canceled) return;
-    return sculkSensor$Activate(region, pos, entity, unknown);
+    return sculkSensor$Activate(region, pos, entity, unknown, unknown2);
 }
 const sculkSensor$Activate = procHacker.hooking(
-    "?activate@SculkSensorBlock@@SAXAEAVBlockSource@@AEBVBlockPos@@PEAVActor@@H@Z",
+    "?activate@SculkSensorBlock@@SAXAEAVBlockSource@@AEBVBlockPos@@PEAVActor@@HH@Z",
     void_t,
     null,
     BlockSource,
     BlockPos,
     Actor,
+    int32_t,
     int32_t,
 )(onSculkSensorActivate);
