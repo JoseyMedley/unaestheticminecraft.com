@@ -4,7 +4,7 @@ import { bin } from "../bin";
 import { capi } from "../capi";
 import { commandParser } from "../commandparser";
 import { CommandResult, CommandResultType } from "../commandresult";
-import { abstract, AttributeName, VectorXYZ } from "../common";
+import { AttributeName, VectorXYZ, abstract } from "../common";
 import { AllocatedPointer, StaticPointer, VoidPointer } from "../core";
 import { CxxVector, CxxVectorToArray } from "../cxxvector";
 import { decay } from "../decay";
@@ -12,20 +12,20 @@ import { events } from "../event";
 import { bedrockServer } from "../launcher";
 import { makefunc } from "../makefunc";
 import { mce } from "../mce";
-import { NativeClass, nativeClass, NativeClassType, nativeField, vectorDeletingDestructor } from "../nativeclass";
+import { NativeClass, NativeClassType, nativeClass, nativeField, vectorDeletingDestructor } from "../nativeclass";
 import {
-    bin64_t,
-    bool_t,
     CxxString,
     CxxStringView,
     CxxStringWith8Bytes,
+    NativeType,
+    Type,
+    bin64_t,
+    bool_t,
     float32_t,
     int16_t,
     int32_t,
     int64_as_float_t,
     int8_t,
-    NativeType,
-    Type,
     uint16_t,
     uint32_t,
     uint8_t,
@@ -93,6 +93,7 @@ import { HashedString, HashedStringToString } from "./hashedstring";
 import {
     ComponentItem,
     Container,
+    EnderChestContainer,
     FillingContainer,
     Inventory,
     InventoryAction,
@@ -171,13 +172,12 @@ import {
     SetTimePacket,
     UpdateAbilitiesPacket,
     UpdateAttributesPacket,
-    UpdateBlockPacket,
 } from "./packets";
 import { BatchedNetworkPeer } from "./peer";
 import { Player, ServerPlayer, SimulatedPlayer } from "./player";
 import { RakNet } from "./raknet";
 import { RakNetConnector } from "./raknetinstance";
-import { DisplayObjective, IdentityDefinition, Objective, ObjectiveCriteria, Scoreboard, ScoreboardId, ScoreboardIdentityRef, ScoreInfo } from "./scoreboard";
+import { DisplayObjective, IdentityDefinition, Objective, ObjectiveCriteria, ScoreInfo, Scoreboard, ScoreboardId, ScoreboardIdentityRef } from "./scoreboard";
 import {
     DedicatedServer,
     Minecraft,
@@ -1306,7 +1306,9 @@ procHacker.hookingRawWithCallOriginal("??1Actor@@UEAA@XZ", asmcode.actorDestruct
 
 // player.ts
 Player.abstract({
+    enderChestContainer: [EnderChestContainer.ref(), 0xcc0], // accessed in Player::Player (the line between two if-else statements, the first if statement calls EnderChestContainer::EnderChestContainer)
     playerUIContainer: [PlayerUIContainer, 0xd78], // accessed in Player::readAdditionalSaveData when calling PlayerUIContainer::load
+    gameMode: [GameMode.ref(), 0xea8], // accessed in ServerNetworkHandler::handle(NetworkIdentifier const &,PlayerActionPacket const &) when calling GameMode::getDestroyRate
     deviceId: [CxxString, 0x1d10], // accessed in AddPlayerPacket::AddPlayerPacket (the string assignment between LayeredAbilities::LayeredAbilities and Player::getPlatform)
 });
 (Player.prototype as any)._setName = procHacker.js(
@@ -2522,6 +2524,7 @@ Block.prototype.getDirectSignal = procHacker.js(
 Block.prototype.isSignalSource = procHacker.js("?isSignalSource@Block@@QEBA_NXZ", bool_t, { this: Block });
 Block.prototype.getDestroySpeed = procHacker.js("?getDestroySpeed@Block@@QEBAMXZ", float32_t, { this: Block });
 
+// BDS calls BlockSource::setBlock (this, exactly same overload) when player moves to TheEnd Dimension, to secure the obsidian platform.
 (BlockSource.prototype as any)._setBlock = procHacker.js(
     "?setBlock@BlockSource@@QEAA_NHHHAEBVBlock@@HPEAVActor@@@Z",
     bool_t,
@@ -2533,28 +2536,12 @@ Block.prototype.getDestroySpeed = procHacker.js("?getDestroySpeed@Block@@QEBAMXZ
     int32_t,
     Actor,
 );
-BlockSource.prototype.getBlock = procHacker.js("?getBlock@BlockSource@@UEBAAEBVBlock@@AEBVBlockPos@@@Z", Block, { this: BlockSource }, BlockPos);
-const UpdateBlockPacket$UpdateBlockPacket = procHacker.js(
-    "??0UpdateBlockPacket@@QEAA@AEBVBlockPos@@IIE@Z",
-    void_t,
-    null,
-    UpdateBlockPacket,
-    BlockPos,
-    uint32_t,
-    uint32_t,
-    uint8_t,
-);
 BlockSource.prototype.setBlock = function (blockPos: BlockPos, block: Block): boolean {
     if (block == null) throw Error("Block is null");
-    const retval = (this as any)._setBlock(blockPos.x, blockPos.y, blockPos.z, block, 0, null);
-    const pk = UpdateBlockPacket.allocate();
-    UpdateBlockPacket$UpdateBlockPacket(pk, blockPos, 0, block.getRuntimeId(), 3);
-    for (const player of bedrockServer.serverInstance.getPlayers()) {
-        player.sendNetworkPacket(pk);
-    }
-    pk.dispose();
-    return retval;
+    return (this as any)._setBlock(blockPos.x, blockPos.y, blockPos.z, block, 3, null);
 };
+
+BlockSource.prototype.getBlock = procHacker.js("?getBlock@BlockSource@@UEBAAEBVBlock@@AEBVBlockPos@@@Z", Block, { this: BlockSource }, BlockPos);
 BlockSource.prototype.getBlockEntity = procHacker.js(
     "?getBlockEntity@BlockSource@@QEAAPEAVBlockActor@@AEBVBlockPos@@@Z",
     BlockActor,
