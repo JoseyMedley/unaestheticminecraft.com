@@ -205,6 +205,8 @@ const CxxVector$ScoreboardId = CxxVector.make(ScoreboardId);
 const CxxVector$EntityRefTraits = CxxVector.make(EntityRefTraits);
 const CxxVector$CommandName = CxxVector.make(CommandName);
 const CxxVector$CxxStringWith8Bytes = CxxVector.make(CxxStringWith8Bytes);
+const CxxVector$PlayerRef = CxxVector.make(Player.ref());
+const CxxVector$ItemStackRequestActionRef = CxxVector.make(ItemStackRequestAction.ref());
 
 // utils
 namespace CommandUtils {
@@ -396,10 +398,10 @@ GamePlayUserManager.prototype.getActiveGameplayUsers = procHacker.js(
 );
 
 Level.prototype.getRandomPlayer = function () {
-    const mgr = this.addAs(GamePlayUserManager, 0x2b70);
+    const mgr = this.addAs(GamePlayUserManager, 0x2e30);
     const activePlayers = mgr.getActiveGameplayUsers();
     if (activePlayers.empty()) return null;
-    const list = CxxVector.make(Player.ref()).construct(); // rsp+28
+    const list = CxxVector$PlayerRef.construct(); // rsp+28
     if (!activePlayers.empty()) {
         for (const p of activePlayers) {
             const storage = new StackResultStorageEntity(true); // rsp+40
@@ -1861,11 +1863,20 @@ Packet.prototype.read = procHacker.jsv(
 );
 
 ItemStackRequestData.prototype.getStringsToFilter = function () {
-    return this.addAs(CxxVector.make(CxxString), 0x28);
+    // assuming it is put before the actions vector, it can be tested by renaming an item with an anvil.
+    return this.addAs(CxxVector$string, 0x10);
 };
 ItemStackRequestData.prototype.getActions = function () {
-    return this.addAs(CxxVector.make(ItemStackRequestAction), 0x30);
+    // accessed in tryFindAction, to check if the vector is empty
+    return this.addAs(CxxVector$ItemStackRequestActionRef, 0x30);
 };
+ItemStackRequestData.prototype.tryFindAction = procHacker.js(
+    "?tryFindAction@ItemStackRequestData@@QEBAPEBVItemStackRequestAction@@W4ItemStackRequestActionType@@@Z",
+    ItemStackRequestAction,
+    { this: ItemStackRequestData },
+    uint8_t,
+);
+
 // networkidentifier.ts
 ServerNetworkHandler.prototype._getServerPlayer = procHacker.js(
     "?_getServerPlayer@ServerNetworkHandler@@EEAAPEAVServerPlayer@@AEBVNetworkIdentifier@@W4SubClientId@@@Z",
