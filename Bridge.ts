@@ -102,7 +102,7 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
         connectionList.set(networkIdentifier, username);
 
         if (enableJoinLeaveMessages == true) {
-            bridge.send({event: 'Join', playerName: username});
+            bridge.send({bridgeEvent: 'Join', playerName: username});
         }
     }
 });
@@ -113,22 +113,81 @@ events.networkDisconnected.on(networkIdentifier => {
     if (enableJoinLeaveMessages == true) {
         const id = connectionList.get(networkIdentifier);
         connectionList.delete(networkIdentifier);
-        /*if(id != undefined){
-            SendToDiscordEvent(id + " has left the server");
-            SendToPlayerLog(id + " has left the server");
-        }*/
+        if(id != undefined){
+            bridge.send({bridgeEvent: 'Leave', playerName: id});
+        }
     }
 });
 
 //send chats to child process
 events.packetAfter(MinecraftPacketIds.Text).on(ev => {
+    bridge.send({bridgeEvent: 'gameMessage', playerName: ev.name, message: ev.message});
 });
 
+//receive discord messages from child process and send to game
+bridge.on('message', (ev) =>{
+    if (ev.bridgeEvent == 'discordMessage'){
+        SendToGame(ev.content, ev.playerName, ev.orig_msg);
+    }
+});
 
+function SendToGame(message: string, user: string, orig_msg: any) {
+    
+    
+    /*if (GetVerifiedUsers("getxuid_"+orig_msg.author.id) != undefined)
+    {
+        let xuid:string = GetVerifiedUsers("getxuid_"+orig_msg.author.id);
+        let player = GetPlayerFromXuid(xuid);
+        user = "§2"+player;
+    }
+    */
+    // Timestamp
+    var date_time = new Date();
+    var date = ("0" + date_time.getDate()).slice(-2);
+    var month = ("0" + (date_time.getMonth() + 1)).slice(-2);
+    var year = date_time.getFullYear();
+    var hours = ("0" + date_time.getHours()).slice(-2);
+    var minutes = ("0" + date_time.getMinutes()).slice(-2);
+    var seconds = ("0" + date_time.getSeconds()).slice(-2);
+    // Prints YYYY-MM-DD HH:MM:SS format - Allow format changing in config!
+    var timestamp = year + "-" + month + "-" + date + " " + hours + ":" + minutes + ":" + seconds;
+    
+    // Actual Messages
+    if (!message.startsWith("-verify ") && !message.startsWith("-unverify")){
+    bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "§r> " + message.replace("\"", "\'").replace("\\","\\\\").replace("\"", "").replace("@", "\@")+"\" } ] }", false);
+    if (postDiscordMessagesToConsole == true) {console.log("[" + timestamp + " CHAT] <[DISCORD] " + user + "> " + message)};
+    }
+    /*
+    else if (message.startsWith("-verify ")){
+
+        let verify_me = message.split("-verify ")[1];
+        const links = require(path.resolve(__dirname, process.cwd() + "/configs/Discord-Chatter/links.json"));
+        if (orig_msg.author.id in links.users){
+            orig_msg.channel.send("<@!"+orig_msg.author.id+"> Already verified (maybe with another XBOX account? Use -unverify to unverify)");
+            return;
+        }
+        var found_user = false;
+        bedrockServer.serverInstance.getPlayers().forEach(usr => {
+            if (usr.getName() == verify_me){
+                found_user = true;
+                bedrockServer.executeCommand("tellraw "+usr.getName().replace("\"", "\'").replace("\\","\\\\")+" { \"rawtext\" : [ { \"text\" : \"§9"+orig_msg.author.tag+"§r wants to verify their Discord account with your Minecraft account. Type §2/verify§r to verify.\" } ] }", false);
+                orig_msg.channel.send("<@!"+orig_msg.author.id+"> Sent you a verify request, which is valid for five minutes. Use /verify ingame.");
+                players_to_verified.push(""+Date.now()+"_"+orig_msg.author.id+"_"+usr.getCertificate().getXuid());
+            }
+        })
+        if (!found_user){
+            orig_msg.channel.send("<@!"+orig_msg.author.id+"> Couldn't find a player with the username "+verify_me+". Please make sure you are online.");
+        }
+    }
+    else if (message.startsWith("-unverify")){
+        // TODO add unverify via dc
+    }
+    */
+};
 
 
 // send death messages to discord
-events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
+/*events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
     if (ev.needsTranslation && ev.message.startsWith("death")){
         let msg = ev.message;
         let params = ev.params;
@@ -153,7 +212,7 @@ events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
 
 
 
-/*
+
 command.register("verify", "Verify's your discord account").overload((param: any, origin: any, output: any) =>{
     let xuid = (origin.getEntity() as ServerPlayer).getCertificate().getXuid();
     var is_verified = false;
