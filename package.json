@@ -23,6 +23,7 @@
         "bdsx": "file:bdsx",
         "blessed": "^0.1.81",
         "colors": "1.4.0 || ^1.4.3",
+        "discord.js": "^14.11.0",
         "follow-redirects": "^1.14.7",
         "glob": "^7.2.0",
         "node-html-parser": "^5.2.0",
