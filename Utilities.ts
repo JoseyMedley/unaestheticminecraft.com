@@ -46,13 +46,10 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
 
     // sendLog
     console.log(`Connection: ${username}> IP=${ip}, XUID=${xuid}, OS=${DeviceOS[connreq.getDeviceOS()] || 'UNKNOWN'}`);
-
-    // send login message
-    const pkt = TextPacket.allocate();
-    pkt.type = TextPacket.Types.Raw;
-    pkt.message = "Welcome to unaestheticminecraft.com. Use /suicide to respawn. Most god hacks don't work. Git gud or git out";
-    pkt.sendTo(networkIdentifier)
-    pkt.dispose();
+});
+// send login message
+events.playerJoin.on(ev => {
+    ev.player.sendMessage("Welcome to unaestheticminecraft.com. Use /suicide to respawn. Most god hacks don't work. Git gud or git out");
 });
 
 var counter = 0;
@@ -67,7 +64,7 @@ events.levelTick.on(() => {
     bedrockServer.executeCommand("/gamerule spawnRadius 128", true);
     counter = counter + 1;
     if (counter >= 40){
-        //bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
+        bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
         counter = 0;
     }
 });
