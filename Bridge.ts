@@ -9,7 +9,7 @@ import { command } from "bdsx/command";
 import { events } from "bdsx/event";
 import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
 import { ServerPlayer } from "bdsx/bds/player";
-var serverShutdown = false;
+import { enable } from "colors";
 
 // Player List
 const connectionList = new Map<NetworkIdentifier, string>();
@@ -27,14 +27,17 @@ for (var i = 0; i < patharray.length && nodepath === ""; i++)
 }
 
 // Create config json if it doesn't exist
-if (!fs.existsSync("./config/Bridge/config.json") ) {
+if (!fs.existsSync("./config/Bridge/config.json")) {
     const defaultConfig = {
         "token": "insert token here",
         "chanID": "920529674998804530",
         "botEnabled": true,
         "postDiscordMessagesToConsole": true,
         "enableJoinLeaveMessages": true,
-        "enableServerStartStopMessages": true
+        "enableServerStartStopMessages": true,
+        "enablePlayerLog": false,
+        "enableDeathMessages": true,
+        "playerLogChanID": "995024446005981205"
     };
     const jsonString = JSON.parse(JSON.stringify(defaultConfig));
     if (!fs.existsSync("./config")) {
@@ -62,24 +65,24 @@ if (!fs.existsSync("./config/Bridge/config.json") ) {
 };
 
 //save variables from config file
-var token = GetConfig("token");
-var chanID = GetConfig("chanID");
-var botEnabled = GetConfig("botEnabled");
 var postDiscordMessagesToConsole = GetConfig("postDiscordMessagesToConsole");
 var enableJoinLeaveMessages = GetConfig("enableJoinLeaveMessages");
-var enableServerStartStopMessages = GetConfig("enableServerStartStopMessages");
+var enableDeathMessages = GetConfig("enableDeathMessages");
 
 //launches bridge in separate process since bdsx cant support discord.js 14
 var bridge = childProcess.fork(__dirname + '/BridgeChildProcess', {execPath:nodepath});
 
+//read death messages from lang file
+var deathmsgs = JSON.parse('""');
+if (enableDeathMessages) {
+    let rawdata = fs.readFileSync('./config/Bridge/deathmsgs.json');
+    deathmsgs = JSON.parse(rawdata);
+}
+    
 // On Server Close
 events.serverClose.on(()=>{
-    if ( /*GetConfig("EnableServerStartStopMessages")  == */true ) {
-        //SendToDiscord("Server Shutting Down!", "Server");
-        console.log('Discord Bridge Shutting Down.');
-    }
-    serverShutdown = true;
-    bridge.kill("SIGINT");
+    console.log('Discord Bridge Shutting Down.');
+    bridge.send({bridgeEvent: 'serverShutdown'});
 });
 
 
@@ -109,7 +112,6 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
 
 // Player Leave
 events.networkDisconnected.on(networkIdentifier => {
-
     if (enableJoinLeaveMessages == true) {
         const id = connectionList.get(networkIdentifier);
         connectionList.delete(networkIdentifier);
@@ -125,7 +127,7 @@ events.packetAfter(MinecraftPacketIds.Text).on(ev => {
 });
 
 //receive discord messages from child process and send to game
-bridge.on('message', (ev) =>{
+bridge.on('message', (ev: { bridgeEvent: string; content: string; playerName: string; orig_msg: any; }) =>{
     if (ev.bridgeEvent == 'discordMessage'){
         SendToGame(ev.content, ev.playerName, ev.orig_msg);
     }
@@ -154,8 +156,8 @@ function SendToGame(message: string, user: string, orig_msg: any) {
     
     // Actual Messages
     if (!message.startsWith("-verify ") && !message.startsWith("-unverify")){
-    bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "§r> " + message.replace("\"", "\'").replace("\\","\\\\").replace("\"", "").replace("@", "\@")+"\" } ] }", false);
-    if (postDiscordMessagesToConsole == true) {console.log("[" + timestamp + " CHAT] <[DISCORD] " + user + "> " + message)};
+        bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "§r> " + message.replace("\"", "\'").replace("\\","\\\\").replace("\"", "").replace("@", "\@")+"\" } ] }", false);
+        if (postDiscordMessagesToConsole == true) {console.log("[" + timestamp + " CHAT] <[DISCORD] " + user + "> " + message)};
     }
     /*
     else if (message.startsWith("-verify ")){
@@ -186,33 +188,26 @@ function SendToGame(message: string, user: string, orig_msg: any) {
 };
 
 
-// send death messages to discord
-/*events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
+// send death messages to bridge
+events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
+    if (!enableDeathMessages) return;
     if (ev.needsTranslation && ev.message.startsWith("death")){
         let msg = ev.message;
         let params = ev.params;
-        let rawdata = fs.readFileSync('deathmsgs.json');
-        let deathmsgs = JSON.parse(rawdata);
         if (deathmsgs[msg].includes("%1") && params.get(0) == null) {return}
         if (deathmsgs[msg].includes("%2") && params.get(1) == null) {return}
         if (deathmsgs[msg].includes("%3") && params.get(2) == null) {return}
         if (params.get(0) != null && params.get(0).startsWith("%")) {return}
         if (params.get(1) != null && params.get(1).startsWith("%")) {return}
-        if (params.get(2) != null && params.get(3).startsWith("%")) {return}
-        var chatmessage = deathmsgs[msg].replace("%1", params.get(0)).replace("%2", params.get(1)).replace("%3", params.get(2));
+        if (params.get(2) != null && params.get(2).startsWith("%")) {return}
+        var chatmessage = deathmsgs[msg].replace("%1", params.get(0)).replace("%2", params.get(1)).replace("%3", params.get(2)).replace("$s", "");
         var playername = chatmessage.split(" ")[0];
         if (playername != ni.getActor()?.getName()) return;
-        //SendToDiscordEvent(chatmessage);
+        bridge.send({bridgeEvent: "deathMessage", deathMessage: chatmessage});
     }
 });
 
-
-
-
-
-
-
-
+/*
 command.register("verify", "Verify's your discord account").overload((param: any, origin: any, output: any) =>{
     let xuid = (origin.getEntity() as ServerPlayer).getCertificate().getXuid();
     var is_verified = false;
@@ -296,6 +291,12 @@ function GetConfig(key: any) {
             return config.enableJoinLeaveMessages;
         case "enableServerStartStopMessages":
             return config.enableServerStartStopMessages;
+        case "enablePlayerLog":
+            return config.enablePlayerLog;
+        case "enableDeathMessages":
+            return config.enableDeathMessages;
+        case "playerLogChanID":
+            return config.playerLogChanID;
         default:
             return null;
     }
