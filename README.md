@@ -3,9 +3,20 @@
 ![logo](bdsx/images/icon.png)\
 BDSX is a modification of Minecraft Bedrock Dedicated Server, supporting [node.js](https://nodejs.org/). Because it is based on the offical BDS software, it includes all the features of vanilla Minecraft, but includes other features as well, such as hooking functions and packets to change behavior.
 
+Unaestheticminecraft.com is a fork of BDSX designed for anarchy servers. It features a strong anticheat, Discord cross-chat, and several utility and stability mods.
+
+## Official Minecraft Server
+
+IP: unaestheticminecraft.com or uamc.us
+Port: 19132
+
+## UAMC Discord Server
+
+https://discord.gg/ecMBBDGExX
+
 ## Features
 
--   OS: Windows(Recommended), Linux with Wine(Unstable)
+-   OS: Windows
 -   All Minecraft BDS features
 -   All node.js features (\*that are supported by ChakraCore. See [this page](https://github.com/bdsx/bdsx/wiki/Available-NPM-Modules) for more information)
 -   Debug with Visual Studio Code (You can debug plugins too)
@@ -42,6 +53,10 @@ To download, clone the repo:
 git clone https://github.com/bdsx/bdsx.git
 ```
 
+To update the server, cd to the server directory and run
+git pull
+npm i
+
 ### Debug & Launch with VSCode
 
 When starting BDSX with VSCode, you need to
@@ -62,6 +77,13 @@ Run `bdsx.bat` (or `bdsx.sh` on Linux) to start BDSX
 2. Run `npm i` to install npm packages and BDS
 3. Use `tsc` to compile the typescript and use `bedrock_server.exe ..` in the `bedrock_server` directory. If on Linux, use `wine bedrock_server.exe ..` instead.
 
+## Configure Discord Bridge
+
+The Discord bridge requires having a Discord bot with read/write permissions in the channel you want to use for the bridge and in the player log channel if you intend to use it.
+If you haven't already you can set up a Discord bot here https://discordapp.com/developers/applications/. If you have not started the server yet then the bridge can be configured in Bridge.ts.
+If the server has already been started the settings can be changed in bedrock_server/config/Bridge/config.json. You will need the token for the bot and the channel ID of the bridge channel
+and of the player log channel if you want it enabled. The bridge needs a newer version of Node.js than BDSX, so make sure it is updated to the latest LTS version.
+
 ## File Structure
 
 ```sh
@@ -77,15 +99,13 @@ Run `bdsx.bat` (or `bdsx.sh` on Linux) to start BDSX
 
 > Please start your own code from ./index.ts
 
-> By default index.ts imports example_and_test. To disable the examples simply remove the import or replace it with your own code.
-
 > For examples, see the `example_and_test` folder. There are some plugins available on npm in the @bdsx organization as well.
 
-## Make a bdsx plugin
+## Make a BDSX plugin
 
 Please check [`plugin-example/README.md`](plugin-example/README.md).
 
-## Discord
+## BDSX Discord
 
 https://discord.gg/pC9XdkC
 
@@ -105,9 +125,10 @@ https://github.com/bdsx/bdsx/wiki
 
 https://hub.docker.com/r/karikera/bdsx
 
-## Bug Report
+## BDSX Bug Report
 
 https://github.com/bdsx/bdsx/issues
+For UAMC bugs report them in the UAMC discord
 
 ## BDSX Core
 
