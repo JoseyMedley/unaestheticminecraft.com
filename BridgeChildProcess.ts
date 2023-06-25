@@ -62,7 +62,6 @@ process.on('message', (ev) =>{
         SendToDiscord(ev.message, ev.playerName);
     }
     else if (ev.bridgeEvent == 'deathMessage') {
-        console.log("it sent");
         SendToDiscordEvent(ev.deathMessage);
     }
     else if (ev.bridgeEvent == 'serverShutdown') {
