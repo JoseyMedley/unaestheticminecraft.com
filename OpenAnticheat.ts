@@ -183,10 +183,25 @@ events.playerInventoryChange.on((ev)=>{
                 var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
                 if (bytetag.data == 1){
                     bytetag.data = 0;
+                    console.log("Reverted a keep on death item");
                 }
             }
         }
     });
+    for (var i = 0; i < 4; i++) {
+        var ud = player.getArmor(i).getUserData();
+        if (ud != null) {
+            var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
+            if (bytetag != null) {
+                if (bytetag.data == 1){
+                    bytetag.data = 0;
+                    console.log("Reverted a keep on death item");
+                }
+            }
+        }
+
+    }
+
 });
 
 function indexOfMin(arr: any[]) {
