@@ -4,10 +4,10 @@ import { events } from "./bdsx/event";
 import { MinecraftPacketIds } from "./bdsx/bds/packetids";
 import { command } from "./bdsx/command";
 import { TextPacket } from "bdsx/bds/packets";
-import { DeviceOS } from "bdsx/common";
+import { BuildPlatform} from "bdsx/common";
 import { bedrockServer } from "bdsx/launcher";
 import { TransferPacket } from "bdsx/bds/packets";
-import { Command, CommandPermissionLevel, CommandRawText } from "bdsx/bds/command";
+import { CommandRawText } from "bdsx/bds/command";
 
 command.register("transferserver", "transfers yourself to another server").overload((param, origin) =>{
     const transferPacket = TransferPacket.allocate();
@@ -40,14 +40,14 @@ events.packetAfter(MinecraftPacketIds.Login).on((ptr, networkIdentifier, packetI
     const ip = networkIdentifier.getAddress();
     const connreq = ptr.connreq;
     if (connreq === null) return; // wrong client
-    const cert = connreq.cert;
+    const cert = connreq.getCertificate();
     const xuid = cert.getXuid();
     const username = cert.getId();
 
-    // sendLog
-    console.log(`Connection: ${username}> IP=${ip}, XUID=${xuid}, OS=${DeviceOS[connreq.getDeviceOS()] || 'UNKNOWN'}`);
+    // Player join log
+    console.log(`Connection: ${username}> IP=${ip}, XUID=${xuid}, OS=${BuildPlatform[connreq.getDeviceOS()] || 'UNKNOWN'}`);
 });
-// send login message
+
 events.playerJoin.on(ev => {
     ev.player.sendMessage("Welcome to unaestheticminecraft.com. Use /suicide to respawn. Most god hacks don't work. Git gud or git out");
 });
@@ -64,7 +64,7 @@ events.levelTick.on(() => {
     bedrockServer.executeCommand("/gamerule spawnRadius 128", true);
     counter = counter + 1;
     if (counter >= 40){
-        bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
+        //bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
         counter = 0;
     }
 });
