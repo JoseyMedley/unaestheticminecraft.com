@@ -10,6 +10,7 @@ import { events } from "bdsx/event";
 import { NetworkIdentifier } from "bdsx/bds/networkidentifier";
 import { ServerPlayer } from "bdsx/bds/player";
 import { enable } from "colors";
+import { connect } from "http2";
 
 // Player List
 const connectionList = new Map<NetworkIdentifier, string>();
@@ -78,7 +79,7 @@ if (enableDeathMessages) {
     let rawdata = fs.readFileSync('./config/Bridge/deathmsgs.json');
     deathmsgs = JSON.parse(rawdata);
 }
-    
+
 // On Server Close
 events.serverClose.on(()=>{
     console.log('Discord Bridge Shutting Down.');
@@ -131,11 +132,22 @@ bridge.on('message', (ev: { bridgeEvent: string; content: string; playerName: st
     if (ev.bridgeEvent == 'discordMessage'){
         SendToGame(ev.content, ev.playerName, ev.orig_msg);
     }
+    if (ev.bridgeEvent == 'playerlist'){
+        var connlist = "";
+        for (var value of connectionList.values()){
+            connlist = connlist + value + " ";
+        }
+        if (connlist == "") {
+            connlist = "none";
+        }
+        bridge.send({bridgeEvent: 'playerlist', list: connlist});
+    }
 });
 
+
 function SendToGame(message: string, user: string, orig_msg: any) {
-    
-    
+
+
     /*if (GetVerifiedUsers("getxuid_"+orig_msg.author.id) != undefined)
     {
         let xuid:string = GetVerifiedUsers("getxuid_"+orig_msg.author.id);
@@ -153,7 +165,7 @@ function SendToGame(message: string, user: string, orig_msg: any) {
     var seconds = ("0" + date_time.getSeconds()).slice(-2);
     // Prints YYYY-MM-DD HH:MM:SS format - Allow format changing in config!
     var timestamp = year + "-" + month + "-" + date + " " + hours + ":" + minutes + ":" + seconds;
-    
+
     // Actual Messages
     if (!message.startsWith("-verify ") && !message.startsWith("-unverify")){
         bedrockServer.executeCommand("tellraw @a { \"rawtext\" : [ { \"text\" : \"<§9[DISCORD]§r " + user + "§r> " + message.replace("\"", "\'").replace("\\","\\\\").replace("\"", "").replace("@", "\@")+"\" } ] }", false);
@@ -203,6 +215,7 @@ events.packetSend(MinecraftPacketIds.Text).on((ev, ni) => {
         var chatmessage = deathmsgs[msg].replace("%1", params.get(0)).replace("%2", params.get(1)).replace("%3", params.get(2)).replace("$s", "");
         var playername = chatmessage.split(" ")[0];
         if (playername != ni.getActor()?.getName()) return;
+        console.log(chatmessage);
         bridge.send({bridgeEvent: "deathMessage", deathMessage: chatmessage});
     }
 });
