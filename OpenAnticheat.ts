@@ -10,22 +10,76 @@ import { CxxVector } from "bdsx/cxxvector";
 import { int16_t } from "bdsx/nativetype";
 import { bedrockServer } from "bdsx/launcher";
 import { hex } from "bdsx/util";
+import { ActorRuntimeID, ItemActor } from "bdsx/bds/actor";
 console.log("Open Anticheat loaded");
 
 // illegal entities and blocks
 var illegalEntities = ["minecraft:phantom", "minecraft:elder_guardian_ghost", "minecraft:npc", "minecraft:agent", "minecraft:tripod_camera", "minecraft:chalkboard", "minecraft:command_block_minecart"];
-var illegalBlocks = ["tile:invisiblebedrock", "minecraft:end_portal_frame", "minecraft:mob_spawner", "minecraft:allow", "minecraft:deny",
+var illegalBlocks = ["minecraft:invisible_bedrock", "minecraft:end_portal_frame", "minecraft:mob_spawner", "minecraft:allow", "minecraft:deny",
 "minecraft:border_block", "minecraft:structure_void", "minecraft:camera", "minecraft:structure_block", "minecraft:nether_reactor", "minecraft:glowingobsidian", "minecraft:barrier",
 "minecraft:command_block", "minecraft:repeating_command_block", "minecraft:chain_command_blocks", "minecraft:bedrock", "minecraft:jigsaw"];
 var illegalItems = ["minecraft:spawn_egg"];
 
 //illegal entities patch
+//remove illegals on player join
 events.entityCreated.on((ev)=>{
     var entity = ev.entity;
     var Id = entity.getIdentifier();
     if (illegalEntities.indexOf(Id) != -1){
         entity.despawn();
         console.log("Illegal Entity Despawned");
+    }
+    if (entity.isPlayer()){
+        var player = entity;
+        player.getInventory().container.getSlots().toArray().forEach(item => {
+            if (item.getUserData() != null){
+                let ud = item.getUserData();
+                /*
+                if (ud.get("Flight") != null){
+                    let flight = ud.get("Flight") as ShortTag;
+                    if (flight.data > 3){
+                        flight = ShortTag.constructWith(3);
+                        console.log("Reverted illegal fireworks");
+                    }
+                }
+                */
+                if (ud.get("ench") != null){
+                    let ench = (ud.get("ench") as ListTag).data.toArray();
+                    ench.forEach(tmp =>{
+                        let enchantment = tmp as CompoundTag;
+                        let lvl = (enchantment.get('lvl') as ShortTag).data;
+                        let id = (enchantment.get('id') as ShortTag).data;
+                        let allowed_lvl = enchants[id as keyof typeof enchants];
+                        if (id == 5 && lvl == 0) {
+                            enchantment.set("lvl", ShortTag.constructWith(3));
+                          }
+                        if (allowed_lvl < lvl) {
+                            console.log("Reverted an overenchanted item");
+                            enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
+                        }
+                    });
+                }
+                if (ud.get("minecraft:keep_on_death") != null){
+                    var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
+                    if (bytetag.data == 1){
+                        bytetag.data = 0;
+                        console.log("Reverted a keep on death item");
+                    }
+                }
+            }
+        });
+        for (var i = 0; i < 4; i++) {
+            var ud = player.getArmor(i).getUserData();
+            if (ud != null) {
+                var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
+                if (bytetag != null) {
+                    if (bytetag.data == 1){
+                        bytetag.data = 0;
+                        console.log("Reverted a keep on death item");
+                    }
+                }
+            }
+        }
     }
 });
 
@@ -42,6 +96,14 @@ events.blockPlace.on((ev)=>{
                 return CANCEL;
             }
         }
+    }
+});
+
+//patch overenchanted thorns
+events.entityHurt.on(ev => {
+    var cause = ev.damageSource.cause;
+    if (cause == 18){
+        if(ev.damage > 4) return CANCEL;
     }
 });
 
@@ -98,7 +160,7 @@ const points = new Map<NetworkIdentifier, int16_t>();
 events.packetAfter(MinecraftPacketIds.Login).on((pk, ni) => {
     let connreq = pk.connreq;
     if (!connreq) return;
-    let cert = connreq.cert;
+    let cert = connreq.getCertificate();
     names.set(ni, cert.getIdentityName());
     currentmessages.set(ni, "");
     points.set(ni, 0);
@@ -122,7 +184,7 @@ const enchants = {
     2:  4,
     3:  4,
     4:  4,
-    5:  3, //this is thorns. revert this to 3 if it no longer crashes servers
+    5:  3,
     6:  3,
     7:  3,
     8:  1,
@@ -156,13 +218,119 @@ const enchants = {
     36: 3
 }
 
+events.itemUse.on((ev) => {
+    var item = ev.itemStack;
+    if (item.getUserData() != null){
+        let ud = item.getUserData();
+        /*
+        if (ud.get("Flight") != null){
+            let flight = ud.get("Flight") as ShortTag;
+            if (flight.data > 3){
+                flight = ShortTag.constructWith(3);
+                console.log("Reverted illegal fireworks");
+            }
+        }
+        */
+        var illegal = false;
+        if (ud.get("ench") != null){
+            let ench = (ud.get("ench") as ListTag).data.toArray();
+            ench.forEach(tmp =>{
+                let enchantment = tmp as CompoundTag;
+                let lvl = (enchantment.get('lvl') as ShortTag).data;
+                let id = (enchantment.get('id') as ShortTag).data;
+                let allowed_lvl = enchants[id as keyof typeof enchants];
+                if (id == 5 && lvl == 0) {
+                    enchantment.set("lvl", ShortTag.constructWith(3));
+                  }
+                if (allowed_lvl < lvl) {
+                    console.log("Reverted an overenchanted item");
+                    enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
+                    illegal = true;
+                }
+            });
+        }
+        if (ud.get("minecraft:keep_on_death") != null){
+            var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
+            if (bytetag.data == 1){
+                bytetag.data = 0;
+                console.log("Reverted a keep on death item");
+            }
+        }
+        if (illegal) return CANCEL;
+    }
+});
 //32k patch by DAMcraft. Improved with keep on death patch by thesoulblazer
+
+events.playerPickupItem.on((ev) => {
+    let player = ev.player;
+    if (!player) return;
+    if (!ev.itemActor.isItem()) return;
+    var itemActor = ev.itemActor as ItemActor;
+    var item = itemActor.itemStack;
+    if (item.getUserData() != null){
+        let ud = item.getUserData();
+        /*
+        if (ud.get("Flight") != null){
+            let flight = ud.get("Flight") as ShortTag;
+            if (flight.data > 3){
+                flight = ShortTag.constructWith(3);
+                console.log("Reverted illegal fireworks");
+            }
+        }
+        */
+        if (ud.get("ench") != null){
+            let ench = (ud.get("ench") as ListTag).data.toArray();
+            ench.forEach(tmp =>{
+                let enchantment = tmp as CompoundTag;
+                let lvl = (enchantment.get('lvl') as ShortTag).data;
+                let id = (enchantment.get('id') as ShortTag).data;
+                let allowed_lvl = enchants[id as keyof typeof enchants];
+                if (id == 5 && lvl == 0) {
+                    enchantment.set("lvl", ShortTag.constructWith(3));
+                }
+                if (allowed_lvl < lvl) {
+                    console.log("Reverted an overenchanted item");
+                    enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
+                }
+            });
+        }
+        if (ud.get("minecraft:keep_on_death") != null){
+            var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
+            if (bytetag.data == 1){
+                bytetag.data = 0;
+                console.log("Reverted a keep on death item");
+            }
+        }
+    }
+    for (var i = 0; i < 4; i++) {
+        var ud = player.getArmor(i).getUserData();
+        if (ud != null) {
+            var bytetag = ud.get("minecraft:keep_on_death") as ByteTag;
+            if (bytetag != null) {
+                if (bytetag.data == 1){
+                    bytetag.data = 0;
+                    console.log("Reverted a keep on death item");
+                }
+            }
+        }
+    }
+});
+
 events.playerInventoryChange.on((ev)=>{
     let player = ev.player;
     if (!player) return;
     player.getInventory().container.getSlots().toArray().forEach(item => {
         if (item.getUserData() != null){
             let ud = item.getUserData();
+            /*
+            if (ud.get("Flight") != null){
+                let flight = ud.get("Flight") as ShortTag;
+                if (flight.data > 3){
+                    flight = ShortTag.constructWith(3);
+                    console.log("Reverted illegal fireworks");
+                }
+            }
+            */
             if (ud.get("ench") != null){
                 let ench = (ud.get("ench") as ListTag).data.toArray();
                 ench.forEach(tmp =>{
@@ -199,9 +367,7 @@ events.playerInventoryChange.on((ev)=>{
                 }
             }
         }
-
     }
-
 });
 
 function indexOfMin(arr: any[]) {
@@ -219,19 +385,12 @@ function indexOfMin(arr: any[]) {
     return minIndex;
 }
 
-var logBackup = console.log;
-var logMessages: any[] = [];
-
-console.log = function() {
-    logMessages.push.apply(logMessages, arguments);
-    logBackup.apply(console, arguments);
-};
-
 //nested shulker patch
 events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
     let x = ev.pos.x;
     let y = ev.pos.y;
     let z = ev.pos.z;
+    ev.entityUniqueId
     let onplayers: any[] = [];
     let distances: any[] = [];
     bedrockServer.serverInstance.getPlayers().forEach(element => {
@@ -249,23 +408,39 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
         let nearest_player: ServerPlayer = onplayers[index];
         const region = nearest_player.getRegion();
         const bpos =  BlockPos.create(x, y, z);
-        const blockEntity = region.getBlockEntity(bpos);
         if (region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:undyed_shulker_box" || region.getBlock(ev.pos).blockLegacy.getRenderBlock().getName() == "minecraft:shulker_box"){
+            const blockEntity = region.getBlockEntity(bpos);
             if (blockEntity != null) {
                 const tag = blockEntity.allocateAndSave();
                 const items = tag.get("Items") as ListTag;
-                for (const e of items.data as CxxVector<CompoundTag>) {
-                    if (items != (null || undefined)){
+                if (items != (null || undefined)){
+                    for (const e of items.data as CxxVector<CompoundTag>) {
                         const Name = "" + e.get("Name");
                         const Slot = ("" + e.get("Slot")).length;
+                        if (e.get("ench") != null){
+                            let ench = (e.get("ench") as ListTag).data.toArray();
+                            ench.forEach(tmp =>{
+                                let enchantment = tmp as CompoundTag;
+                                let lvl = (enchantment.get('lvl') as ShortTag).data;
+                                let id = (enchantment.get('id') as ShortTag).data;
+                                let allowed_lvl = enchants[id as keyof typeof enchants];
+                                if (id == 5 && lvl == 0) {
+                                    enchantment.set("lvl", ShortTag.constructWith(3));
+                                }
+                                if (allowed_lvl < lvl) {
+                                    console.log("Reverted an overenchanted item");
+                                    enchantment.set("lvl", ShortTag.constructWith(Number(allowed_lvl)));
+                                }
+                            });
+                        }
                         if (Name == "minecraft:shulker_box" || Name == "minecraft:undyed_shulker_box"){
                             console.log("Cleared nested shulker from shulker at " + x +" "+ y +" "+ z + " (At slot " + Slot + ")");
                             if (y > 320){
                                 y = y - 4294967296;
                                 //forgive me jeebus for this bullshit fix
                             }
-                            var dim = region.getDimension();
-                            bedrockServer.executeCommand(`/replaceitem block ${x} ${y} ${z} slot.container ` + Slot + " stone", false);
+                            var playername = nearest_player.getNameTag();
+                            bedrockServer.executeCommand(`/execute at ` + playername + ` run replaceitem block ${x} ${y} ${z} slot.container ` + Slot + " stone", false);
                         }
                     }
                 }
@@ -274,7 +449,6 @@ events.packetSend(MinecraftPacketIds.ContainerOpen).on(ev => {
         }
     }
 });
-
 
 //shitty antispam
 events.packetBefore(MinecraftPacketIds.Text).on((ev, ni, packetid) =>{
@@ -288,6 +462,7 @@ events.packetBefore(MinecraftPacketIds.Text).on((ev, ni, packetid) =>{
         if (currpoints == undefined) return;
         if (currpoints >= 5){
             bedrockServer.serverInstance.disconnectClient(ni, `Stop fucking spamming`);
+            console.log(ni.getActor()?.getName() + " spammed");
             return CANCEL;
         }
         points.set(ni, currpoints + 1);
@@ -314,18 +489,16 @@ events.packetRaw(MinecraftPacketIds.InventoryTransaction).on((ptr, size, ni) => 
             }
             data.push({
                 id,
-                slots,
+                slots
             });
         }
         if (data.length >= 3) {
-            if ((data[0].id === 28) &&
-                (data[1].id === 159) && (data[1].slots[0] === 9) &&
-                (data[2].slots.length === 0)) {
-                    var playername = ni.getActor()?.getName();
-                    if (playername == undefined) return CANCEL;
-                    console.log(playername + " used fake inventory transaction packets");
-                    bedrockServer.serverInstance.disconnectClient(ni, `I don't .give a shit`);
-                    return CANCEL;
+            if ((data[0].id === 28) && (data[1].id === 159) && (data[1].slots[0] === 9) && (data[2].slots.length === 0)) {
+                var playername = ni.getActor()?.getName();
+                if (playername == undefined) return CANCEL;
+                console.log(playername + " used fake inventory transaction packets");
+                bedrockServer.serverInstance.disconnectClient(ni, `I don't .give a shit`);
+                return CANCEL;
             }
         }
     }
