@@ -1,5 +1,6 @@
 import { message } from "blessed";
 
+const { SlashCommandBuilder } = require('@discordjs/builders');
 const fs = require('fs');
 const path = require('path');
 
@@ -49,6 +50,8 @@ bot.on('ready', () => {
     bot.user.setPresence({activity: {name: 'Sacrificing Goats'}, status: 'online'});
 });
 
+const command = new SlashCommandBuilder().setName('ping').setDescription('Replies with Pong!');
+
 process.on('message', (ev) =>{
     if (ev.bridgeEvent == 'Join') {
         SendToDiscordEvent(ev.playerName + " has joined the server");
@@ -70,29 +73,40 @@ process.on('message', (ev) =>{
         bot.destroy();
         process.exit(0);
     }
+    else if (ev.bridgeEvent == 'playerlist') {
+        SendToDiscordEvent(ev.list);
+    }
 });
 
 //sends messages from bridge channel to minecraft server
 bot.on('messageCreate', (msg: {channel: {id: string;}; author: {bot: string | boolean; username: string; }; content: string; }) => {
     if (botEnabled && msg.channel.id == chanID && msg.author.bot != true && msg.content.startsWith("X") != true) {
         if (!process.send) return;
-        process.send({bridgeEvent: 'discordMessage', orig_msg: msg, playerName: msg.author.username, content: msg.content});
+        if (msg.content == "!playerlist"){
+            process.send({bridgeEvent: 'playerlist'});
+        } else{
+            process.send({bridgeEvent: 'discordMessage', orig_msg: msg, playerName: msg.author.username, content: msg.content});
+        }
     }
 });
 
 //restart bot
 bot.on('disconnect', () => {
     if (serverShutdown) return;
-    bot.destroy().then(() => bot.login(token).catch((e: string) => {
-        if (e == "Error: An invalid token was provided." || e == "Error: Incorrect login details were provided.") {
-            console.log("\nError in Discord.js: Invalid Login Token.");
-            console.log("You have provided an Invalid Login Token; Please run `dc config token {token}` in the console.");
-            console.log("Discord bridge will not work without a proper token.\n");
-        } else {
-            console.log("Uncaught Error! Please report this.");
-            throw e;
-        }
-    }));
+    var botdisconnected = true;
+    while (botdisconnected) {
+        botdisconnected = false;
+        bot.destroy().then(() => bot.login(token).catch((e: string) => {
+            botdisconnected = true;
+            if (e == "Error: An invalid token was provided." || e == "Error: Incorrect login details were provided.") {
+                console.log("\nError in Discord.js: Invalid Login Token.");
+                console.log("You have provided an Invalid Login Token; Please run `dc config token {token}` in the console.");
+                console.log("Discord bridge will not work without a proper token.\n");
+            } else {
+                console.log("Uncaught Error! Please report this.");
+            }
+        }));
+    }
 });
 
 // Message Functions
@@ -153,7 +167,7 @@ function SendToDiscord(message: string, user: string) {
     if (botEnabled) {
         const chan = bot.channels.cache.get(chanID);
         try {
-            chan.send("[" + user + "] " + message).catch((e: any) => {
+            chan.send("[" + user + "] " + message.replace("@", "")).catch((e: any) => {
                 if (e == "DiscordAPIError: Missing Permissions") {
                     console.log("Error in discord.js: Missing permissions.");
                     console.log("Ensure the bot is in your server AND it has send permissions in the relevant channel!");
