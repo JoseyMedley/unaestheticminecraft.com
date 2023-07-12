@@ -64,7 +64,7 @@ events.levelTick.on(() => {
     bedrockServer.executeCommand("/gamerule spawnRadius 128", true);
     counter = counter + 1;
     if (counter >= 40){
-        //bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
+        bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
         counter = 0;
     }
 });
@@ -80,12 +80,12 @@ events.blockDestructionStart.on((ev) => {
     var Xpos = ev.blockPos.x;
     var Ypos = String(ev.blockPos.y);
     var Zpos = String(ev.blockPos.z);
-    if(bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos) + " " + Ypos + " " + Zpos + " " + "end_portal", true).result == 1) {
-        var firsttest = bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos + 1) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
-        var secondtest = bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos + 2) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
-        var thirdtest = bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~ testforblock " + String(Xpos + 3) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+    if(bedrockServer.executeCommand("/execute at " + playername + " run testforblock " + String(Xpos) + " " + Ypos + " " + Zpos + " " + "end_portal", true).result == 1) {
+        var firsttest = bedrockServer.executeCommand("/execute at " + playername + " run testforblock " + String(Xpos + 1) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        var secondtest = bedrockServer.executeCommand("/execute at " + playername + " run testforblock " + String(Xpos + 2) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
+        var thirdtest = bedrockServer.executeCommand("/execute at " + playername + " run testforblock " + String(Xpos + 3) + " " + Ypos + " " + Zpos + " " + "end_portal_frame", true).result;
         if (firsttest + secondtest + thirdtest == 1536) {
-            bedrockServer.executeCommand("/execute " + playername + " ~ ~ ~" + " fill " + String(Xpos) + " " + Ypos + " " + Zpos + " " + String(Xpos) + " " + Ypos + " " + Zpos + " air", true);
+            bedrockServer.executeCommand("/execute at " + playername + " run" + " fill " + String(Xpos) + " " + Ypos + " " + Zpos + " " + String(Xpos) + " " + Ypos + " " + Zpos + " air", true);
         }
     }
 });
