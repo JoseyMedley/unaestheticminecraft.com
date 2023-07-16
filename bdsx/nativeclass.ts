@@ -1,7 +1,7 @@
 import * as util from "util";
 import { capi } from "./capi";
 import { CircularDetector } from "./circulardetector";
-import { Bufferable, emptyFunc, Encoding, TypeFromEncoding } from "./common";
+import { abstract, Bufferable, emptyFunc, Encoding, TypeFromEncoding } from "./common";
 import { NativePointer, PrivatePointer, StaticPointer, StructurePointer, VoidPointer } from "./core";
 import { makefunc } from "./makefunc";
 import { mangle } from "./mangle";
@@ -32,6 +32,24 @@ function accessor(key: string | number): string {
     if (typeof key === "number") return `[${key}]`;
     if (/^[a-zA-Z_$][a-zA-Z_$]*$/.test(key)) return `.${key}`;
     return `[${JSON.stringify(key)}]`;
+}
+
+export namespace nativeClassUtil {
+    export function bindump(object: NativeClass): void {
+        const size = object[NativeType.size];
+        const ptr = object.as(NativePointer);
+        for (let i = 0; i < size; i += 8) {
+            const remaining = Math.min(size - i, 8);
+            let str = "";
+            for (let i = 0; i < remaining; i++) {
+                let b = ptr.readUint8().toString(16);
+                if (b.length === 1) b = "0" + b;
+                str = b + str;
+            }
+            console.log(str);
+        }
+    }
+    export const inspectFields = Symbol("inspect-fields");
 }
 
 export interface NativeClassType<T extends NativeClass> extends Type<T> {
@@ -575,7 +593,9 @@ export class NativeClass extends StructurePointer {
         return obj;
     }
 
-    [nativeClassUtil.inspectFields](obj: Record<string, any>): void;
+    [nativeClassUtil.inspectFields](obj: Record<string, any>): void {
+        abstract();
+    }
 
     [util.inspect.custom](depth: number, options: Record<string, any>): unknown {
         try {
@@ -973,24 +993,6 @@ function makeReference<T extends NativeClass>(type: { new (): T }): NativeType<T
         (stackptr, offset) => clazz[makefunc.getFromParam](stackptr, offset),
         (stackptr, v, offset) => stackptr.setPointer(v, offset),
     );
-}
-
-export namespace nativeClassUtil {
-    export function bindump(object: NativeClass): void {
-        const size = object[NativeType.size];
-        const ptr = object.as(NativePointer);
-        for (let i = 0; i < size; i += 8) {
-            const remaining = Math.min(size - i, 8);
-            let str = "";
-            for (let i = 0; i < remaining; i++) {
-                let b = ptr.readUint8().toString(16);
-                if (b.length === 1) b = "0" + b;
-                str = b + str;
-            }
-            console.log(str);
-        }
-    }
-    export const inspectFields = Symbol("inspect-fields");
 }
 
 NativeClass.prototype[nativeClassUtil.inspectFields] = inspectNativeFields;

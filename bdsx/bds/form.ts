@@ -43,6 +43,14 @@ class SentForm {
     }
 }
 
+events.serverStop.on(() => {
+    for (const form of formMaps.values()) {
+        form.reject(Error("server closed"));
+        clearTimeout(form.timeout);
+    }
+    formMaps.clear();
+});
+
 export interface FormItemButton {
     text: string;
     image?: {
