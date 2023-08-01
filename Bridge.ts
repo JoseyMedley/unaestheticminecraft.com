@@ -134,8 +134,12 @@ bridge.on('message', (ev: { bridgeEvent: string; content: string; playerName: st
     }
     if (ev.bridgeEvent == 'playerlist'){
         var connlist = "";
+        var size = connectionList.size;
+        var counter = 0;
         for (var value of connectionList.values()){
-            connlist = connlist + value + " ";
+            connlist = connlist + value;
+            counter = counter + 1;
+            if (counter != size) connlist = connlist + ", ";
         }
         if (connlist == "") {
             connlist = "none";
