@@ -1934,9 +1934,12 @@ export class CodeBuilderPacket extends Packet {
     // unknown
 }
 
-@nativeClass(null)
+@nativeClass()
 export class UpdatePlayerGameTypePacket extends Packet {
-    // unknown
+    @nativeField(int32_t)
+    gameType: GameType;
+    @nativeField(ActorUniqueID)
+    playerId: ActorUniqueID;
 }
 
 @nativeClass(null)
