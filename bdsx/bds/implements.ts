@@ -131,6 +131,7 @@ import {
     ThrowableItemComponent,
     WeaponItemComponent,
     WearableItemComponent,
+    cereal,
 } from "./item_component";
 import { ActorFactory, AdventureSettings, BlockPalette, Level, LevelData, ServerLevel, Spawner, TagRegistry } from "./level";
 import {
@@ -588,83 +589,6 @@ Dimension.prototype.getHeight = procHacker.js("?getHeight@Dimension@@QEBAFXZ", i
 
 Dimension.prototype.tryGetClosestPublicRegion = function (chunkpos: ChunkPos) {
     return this.getBlockSource();
-
-    /**
-     * @author rua.kr
-     * legacy polyfill.
-     * I'm not sure it should be implemented.
-     * Skipped for now.
-     */
-    // let blockSource: BlockSource | null = null; // rsp+80
-    // for (const player of this.getPlayers()) {
-    //     if (!player.hasDimension()) continue;
-    //     blockSource = player.getRegion();
-    //     if (blockSource.getChunk(chunkpos) === null) continue;
-    //     break;
-    // }
-    // if (blockSource !== null) return blockSource;
-    // const list = (this as VoidPointer as StaticPointer).getPointerAs(TickingAreaList, 0x2b8);
-
-    // for (const tickingAreaPtr of list.getAreas()) {
-    //     const tickingArea = tickingAreaPtr.p;
-    //     let bpl = 0;
-    //     let chunkFound = false;
-    //     let chunk: CxxSharedPtr<LevelChunk> | null = null; // rsp_30
-    //     if (tickingArea !== null) {
-    //         if (!tickingArea.isRemoved()) {
-    //             const view = tickingArea.getView();
-    //             // mov r8,chunkpos
-    //             // lea rdx,
-    //             chunk = view.getAvailableChunk(chunkpos);
-    //             chunkFound = true;
-    //             if (chunk.p !== null) {
-    //                 bpl = 1;
-    //             }
-    //         }
-    //     }
-    //     if (chunkFound) {
-    //         // mov rbx,qword ptr ss:[rsp+38]
-    //         // test rbx,rbx
-    //         // je bedrock_server.7FF694F649AD
-    //         // mov eax,FFFFFFFF
-    //         // lock xadd dword ptr ds:[rbx+8],eax
-    //         // cmp eax,1
-    //         // jne bedrock_server.7FF694F649AD
-    //         // mov rax,qword ptr ds:[rbx]
-    //         // mov rcx,rbx
-    //         // mov rax,qword ptr ds:[rax]
-    //         // call qword ptr ds:[<__guard_dispatch_icall_fptr>]
-    //         // mov eax,FFFFFFFF
-    //         // lock xadd dword ptr ds:[rbx+C],eax
-    //         // cmp eax,1
-    //         // jne bedrock_server.7FF694F649AD
-    //         // mov rax,qword ptr ds:[rbx]
-    //         // mov rcx,rbx
-    //         // mov rax,qword ptr ds:[rax+8]
-    //         // call qword ptr ds:[<__guard_dispatch_icall_fptr>]
-    //     }
-    //     // test bpl,bpl
-    //     // jne bedrock_server.7FF694F649E1
-
-    //     // rdi = tickingArea*
-    //     // add rdi,10
-    //     // cmp rdi,inst_end
-    //     // jne bedrock_server.7FF694F64905
-
-    //     // bedrock_server.7FF694F649E1
-    //     // rcx = tickingArea
-    //     // mov rax,qword ptr ds:[rcx]
-    //     // mov rax,qword ptr ds:[rax+28]
-    //     // call qword ptr ds:[<__guard_dispatch_icall_fptr>]
-    //     // return;
-    // }
-    // const mainBlockSource = this.getBlockSource();
-    // if (mainBlockSource !== null) {
-    //     if (mainBlockSource.getChunk(chunkpos) !== null) {
-    //         return mainBlockSource;
-    //     }
-    // }
-    // return null as any;
 };
 Dimension.prototype.removeActorByID = procHacker.js("?removeActorByID@Dimension@@QEAAXAEBUActorUniqueID@@@Z", void_t, { this: Dimension }, ActorUniqueID);
 Dimension.prototype.getMinHeight = procHacker.js("?getMinHeight@Dimension@@QEBAFXZ", int16_t, { this: Dimension });
@@ -1810,7 +1734,10 @@ NetworkSystem.prototype.sendInternal = procHacker.js(
     CxxStringWrapper,
 );
 
-NetworkConnection.prototype.disconnect = procHacker.js("?disconnect@NetworkConnection@@QEAAXXZ", void_t, { this: NetworkConnection });
+NetworkConnection.prototype.disconnect = function () {
+    // NetworkSystem::onConnectionClosed, [rbx] = NetworkSystem*
+    (this as any as StaticPointer).setUint8(1, 0x168);
+};
 
 const BatchedNetworkPeer$sendPacket = procHacker.js(
     "?sendPacket@BatchedNetworkPeer@@UEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@W4Reliability@NetworkPeer@@W4Compressibility@@@Z",
@@ -2514,11 +2441,10 @@ BlockLegacy.prototype.getStateFromLegacyData = procHacker.js(
 BlockLegacy.prototype.getRenderBlock = procHacker.js("?getRenderBlock@BlockLegacy@@UEBAAEBVBlock@@XZ", Block, { this: BlockLegacy });
 BlockLegacy.prototype.getDefaultState = procHacker.js("?getDefaultState@BlockLegacy@@QEBAAEBVBlock@@XZ", Block, { this: BlockLegacy });
 BlockLegacy.prototype.tryGetStateFromLegacyData = procHacker.js(
-    "?tryGetStateFromLegacyData@BlockLegacy@@QEBAPEBVBlock@@G_N@Z",
+    "?tryGetStateFromLegacyData@BlockLegacy@@QEBAPEBVBlock@@G@Z",
     Block,
     { this: BlockLegacy },
     uint16_t,
-    bool_t,
 );
 BlockLegacy.prototype.use = procHacker.jsv(
     "??_7JukeboxBlock@@6B@",
@@ -3037,8 +2963,8 @@ Scoreboard.prototype.getScoreboardIdentityRef = procHacker.js(
 );
 Scoreboard.prototype.removeObjective = procHacker.js("?removeObjective@Scoreboard@@QEAA_NPEAVObjective@@@Z", bool_t, { this: Scoreboard }, Objective);
 Scoreboard.prototype.resetPlayerScore = procHacker.js(
-    "?resetPlayerScore@Scoreboard@@QEAAXAEBUScoreboardId@@AEAVObjective@@@Z",
-    void_t,
+    "?resetPlayerScore@Scoreboard@@QEAA_NAEBUScoreboardId@@AEAVObjective@@@Z",
+    bool_t,
     { this: Scoreboard },
     ScoreboardId,
     Objective,
@@ -3075,6 +3001,9 @@ Objective.prototype.getDisplayName = procHacker.js("?getDisplayName@Objective@@Q
     this: Objective,
 });
 
+IdentityDefinition.prototype.isPlayerType = procHacker.js("?getScoreboardId@ScoreboardIdentityRef@@QEBAAEBUScoreboardId@@XZ", bool_t, {
+    this: IdentityDefinition,
+});
 IdentityDefinition.prototype.getEntityId = procHacker.js("?getEntityId@IdentityDefinition@@QEBAAEBUActorUniqueID@@XZ", ActorUniqueID.ref(), {
     this: IdentityDefinition,
 });
@@ -3111,7 +3040,11 @@ ScoreboardIdentityRef.prototype.getPlayerId = procHacker.js("?getPlayerId@Scoreb
 ScoreboardIdentityRef.prototype.getScoreboardId = procHacker.js("?getScoreboardId@ScoreboardIdentityRef@@QEBAAEBUScoreboardId@@XZ", ScoreboardId, {
     this: ScoreboardIdentityRef,
 });
-ScoreboardIdentityRef.prototype.isPlayerType = procHacker.js("?isPlayerType@ScoreboardIdentityRef@@QEBA_NXZ", bool_t, { this: ScoreboardIdentityRef });
+ScoreboardIdentityRef.prototype.isPlayerType = function () {
+    let iddef = (this as any as StaticPointer).getPointerAs(IdentityDefinition, 0x10);
+    if (iddef === null) iddef = IdentityDefinition.Invalid;
+    return iddef.isPlayerType();
+};
 
 // effects.ts
 MobEffect.create = procHacker.js("?getById@MobEffect@@SAPEAV1@I@Z", MobEffect, null, int32_t);
@@ -3236,11 +3169,10 @@ ByteArrayTag.prototype[NativeType.ctor] = function () {
     this.vftable = ByteArrayTag$vftable;
     this.data.construct();
 };
-const ByteArrayTag$ByteArrayTag = procHacker.js("??0ByteArrayTag@@QEAA@UTagMemoryChunk@@@Z", void_t, null, ByteArrayTag, TagMemoryChunk);
 ByteArrayTag.prototype.constructWith = function (data: Uint8Array): void {
-    const chunk = TagMemoryChunk.construct();
-    chunk.set(data);
-    ByteArrayTag$ByteArrayTag(this, chunk); // it will destruct the chunk.
+    this.vftable = ByteArrayTag$vftable;
+    this.data.construct();
+    this.data.set(data);
 };
 const StringTagDataOffset = StringTag.offsetOf("data");
 StringTag.prototype[NativeType.ctor] = function () {
@@ -3527,19 +3459,25 @@ ItemComponent.setResolver(ptr => {
     return ptr.as(cls || ItemComponent);
 });
 
-ItemComponent.prototype.buildNetworkTag = procHacker.jsv(
+const ItemComponent$buildNetworkTag = procHacker.jsv(
     "??_7ItemComponent@@6B@",
-    "?buildNetworkTag@ItemComponent@@UEBA?AV?$unique_ptr@VCompoundTag@@U?$default_delete@VCompoundTag@@@std@@@std@@XZ",
+    "?buildNetworkTag@ItemComponent@@UEBA?AV?$unique_ptr@VCompoundTag@@U?$default_delete@VCompoundTag@@@std@@@std@@AEAUReflectionCtx@cereal@@@Z",
     CompoundTag.ref(),
     { this: ItemComponent, structureReturn: true },
 );
-ItemComponent.prototype.initializeFromNetwork = procHacker.jsv(
+ItemComponent.prototype.buildNetworkTag = function (u = new cereal.ReflectionCtx(true)) {
+    return ItemComponent$buildNetworkTag.call(this, u);
+};
+const ItemComponent$initializeFromNetwork = procHacker.jsv(
     "??_7ChargeableItemComponent@@6B@",
-    "?initializeFromNetwork@ChargeableItemComponent@@UEAA_NAEBVCompoundTag@@@Z",
+    "?initializeFromNetwork@ChargeableItemComponent@@UEAA_NAEBVCompoundTag@@AEAUReflectionCtx@cereal@@@Z",
     void_t,
     { this: ItemComponent },
     CompoundTag,
 );
+ItemComponent.prototype.initializeFromNetwork = function (tag, u = new cereal.ReflectionCtx(true)) {
+    return ItemComponent$initializeFromNetwork.call(this, tag, u);
+};
 
 CooldownItemComponent.getIdentifier = procHacker.js("?getIdentifier@CooldownItemComponent@@SAAEBVHashedString@@XZ", HashedString, null);
 ArmorItemComponent.getIdentifier = procHacker.js("?getIdentifier@ArmorItemComponent@@SAAEBVHashedString@@XZ", HashedString, null);
@@ -3565,17 +3503,18 @@ ThrowableItemComponent.getIdentifier = procHacker.js("?getIdentifier@ThrowableIt
 WeaponItemComponent.getIdentifier = procHacker.js("?getIdentifier@WeaponItemComponent@@SAAEBVHashedString@@XZ", HashedString, null);
 WearableItemComponent.getIdentifier = procHacker.js("?getIdentifier@WearableItemComponent@@SAAEBVHashedString@@XZ", HashedString, null);
 
-DiggerItemComponent.prototype.mineBlock = procHacker.js(
-    "?mineBlock@DiggerItemComponent@@QEAA_NAEAVItemStack@@AEBVBlock@@HHHPEAVActor@@@Z",
-    bool_t,
-    { this: DiggerItemComponent },
-    ItemStack,
-    Block,
-    int32_t,
-    int32_t,
-    int32_t,
-    Actor,
-);
+// XXX: removed
+// DiggerItemComponent.prototype.mineBlock = procHacker.js(
+//     "?mineBlock@DiggerItemComponent@@QEAA_NAEAVItemStack@@AEBVBlock@@HHHPEAVActor@@@Z",
+//     bool_t,
+//     { this: DiggerItemComponent },
+//     ItemStack,
+//     Block,
+//     int32_t,
+//     int32_t,
+//     int32_t,
+//     Actor,
+// );
 // TODO: removed method, need to implement
 // EntityPlacerItemComponent.prototype.positionAndRotateActor = procHacker.js(
 //     "?_positionAndRotateActor@EntityPlacerItemComponent@@AEBAXAEAVActor@@VVec3@@EAEBV3@PEBVBlockLegacy@@@Z",
