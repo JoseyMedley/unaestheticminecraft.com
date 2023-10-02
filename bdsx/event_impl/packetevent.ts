@@ -9,13 +9,11 @@ import { proc } from "../bds/symbols";
 import { CANCEL, abstract } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
 import { decay } from "../decay";
-import { dllraw } from "../dllraw";
 import { events } from "../event";
 import { bedrockServer } from "../launcher";
 import { makefunc } from "../makefunc";
 import { AbstractClass, nativeClass, nativeField } from "../nativeclass";
 import { int32_t, int64_as_float_t, void_t } from "../nativetype";
-import { nethook } from "../nethook";
 import { CxxStringWrapper } from "../pointer";
 import { procHacker } from "../prochacker";
 import { CxxSharedPtr } from "../sharedpointer";
@@ -57,24 +55,22 @@ function onPacketRaw(rbp: OnPacketRBP, conn: NetworkConnection): PacketSharedPtr
     const packetId = rbp.packetId;
     try {
         const target = events.packetRaw(packetId);
+        if (target === null || target.isEmpty()) throw Error("no listener but onPacketRaw fired.");
         const ni = conn.networkIdentifier;
-        nethook.lastSender = ni;
-        if (target !== null && !target.isEmpty()) {
-            const s = rbp.stream;
-            const data = s.data;
-            const rawpacketptr = data.valueptr;
+        const s = rbp.stream;
+        const data = s.data;
+        const rawpacketptr = data.valueptr;
 
-            for (const listener of target.allListeners()) {
-                const ptr = rawpacketptr.add();
-                try {
-                    if (listener(ptr, data.length, ni, packetId) === CANCEL) {
-                        return null;
-                    }
-                } catch (err) {
-                    events.errorFire(err);
-                } finally {
-                    decay(ptr);
+        for (const listener of target.allListeners()) {
+            const ptr = rawpacketptr.add();
+            try {
+                if (listener(ptr, data.length, ni, packetId) === CANCEL) {
+                    return null;
                 }
+            } catch (err) {
+                events.errorFire(err);
+            } finally {
+                decay(ptr);
             }
         }
     } catch (err) {
@@ -85,78 +81,73 @@ function onPacketRaw(rbp: OnPacketRBP, conn: NetworkConnection): PacketSharedPtr
 const packetizeSymbol =
     "?_sortAndPacketizeEvents@NetworkSystem@@AEAA_NAEAVNetworkConnection@@V?$time_point@Usteady_clock@chrono@std@@V?$duration@_JU?$ratio@$00$0DLJKMKAA@@std@@@23@@chrono@std@@@Z";
 const packetBeforeSkipAddress = proc[packetizeSymbol].add(0xd17);
-function onPacketBefore(rbp: OnPacketRBP, returnAddressInStack: StaticPointer): void {
+function onPacketBefore(rbp: OnPacketRBP, returnAddressInStack: StaticPointer, packetId: MinecraftPacketIds, conn: NetworkConnection): void {
     try {
-        const packet = rbp.packet.p!;
-        const packetId = packet.getId();
         const target = events.packetBefore(packetId);
-        if (target !== null && !target.isEmpty()) {
-            const ni = nethook.lastSender;
-            const TypedPacket = PacketIdToType[packetId] || Packet;
-            const typedPacket = packet.as(TypedPacket);
-            try {
-                for (const listener of target.allListeners()) {
-                    try {
-                        if (listener(typedPacket, ni, packetId) === CANCEL) {
-                            returnAddressInStack.setPointer(packetBeforeSkipAddress);
-                        }
-                    } catch (err) {
-                        events.errorFire(err);
+        if (target === null || target.isEmpty()) throw Error("no listener but onPacketBefore fired.");
+
+        const ni = conn.networkIdentifier;
+        const TypedPacket = PacketIdToType[packetId] || Packet;
+        const packet = rbp.packet.p!;
+        const typedPacket = packet.as(TypedPacket);
+        try {
+            for (const listener of target.allListeners()) {
+                try {
+                    if (listener(typedPacket, ni, packetId) === CANCEL) {
+                        returnAddressInStack.setPointer(packetBeforeSkipAddress);
                     }
+                } catch (err) {
+                    events.errorFire(err);
                 }
-            } finally {
-                decay(typedPacket);
             }
+        } finally {
+            decay(typedPacket);
         }
     } catch (err) {
         remapAndPrintError(err);
     }
 }
-function onPacketAfter(packet: Packet, ni: NetworkIdentifier): void {
+function onPacketAfter(packet: Packet, ni: NetworkIdentifier, packetId: MinecraftPacketIds): void {
     try {
-        const packetId = packet.getId();
         const target = events.packetAfter(packetId);
-        if (target !== null && !target.isEmpty()) {
-            const TypedPacket = PacketIdToType[packetId] || Packet;
-            const typedPacket = packet.as(TypedPacket);
-            try {
-                for (const listener of target.allListeners()) {
-                    try {
-                        if (listener(typedPacket, ni, packetId) === CANCEL) {
-                            break;
-                        }
-                    } catch (err) {
-                        events.errorFire(err);
+        if (target === null || target.isEmpty()) throw Error("no listener but onPacketAfter fired.");
+        const TypedPacket = PacketIdToType[packetId] || Packet;
+        const typedPacket = packet.as(TypedPacket);
+        try {
+            for (const listener of target.allListeners()) {
+                try {
+                    if (listener(typedPacket, ni, packetId) === CANCEL) {
+                        break;
                     }
+                } catch (err) {
+                    events.errorFire(err);
                 }
-            } finally {
-                decay(typedPacket);
             }
+        } finally {
+            decay(typedPacket);
         }
     } catch (err) {
         remapAndPrintError(err);
     }
 }
-function onPacketSend(_: void, ni: NetworkIdentifier, packet: Packet): number {
+function onPacketSend(packetId: MinecraftPacketIds, ni: NetworkIdentifier, packet: Packet): number {
     try {
-        const packetId = packet.getId();
         const target = events.packetSend(packetId);
-        if (target !== null && !target.isEmpty()) {
-            const TypedPacket = PacketIdToType[packetId] || Packet;
-            const typedPacket = packet.as(TypedPacket);
-            try {
-                for (const listener of target.allListeners()) {
-                    try {
-                        if (listener(typedPacket, ni, packetId) === CANCEL) {
-                            return 1;
-                        }
-                    } catch (err) {
-                        events.errorFire(err);
+        if (target === null || target.isEmpty()) throw Error("no listener but onPacketSend fired.");
+        const TypedPacket = PacketIdToType[packetId] || Packet;
+        const typedPacket = packet.as(TypedPacket);
+        try {
+            for (const listener of target.allListeners()) {
+                try {
+                    if (listener(typedPacket, ni, packetId) === CANCEL) {
+                        return 1;
                     }
+                } catch (err) {
+                    events.errorFire(err);
                 }
-            } finally {
-                decay(typedPacket);
             }
+        } finally {
+            decay(typedPacket);
         }
     } catch (err) {
         remapAndPrintError(err);
@@ -167,21 +158,20 @@ function onPacketSendInternal(handler: NetworkSystem, ni: NetworkIdentifier, pac
     try {
         const packetId = packet.getId();
         const target = events.packetSendRaw(packetId);
-        if (target !== null && !target.isEmpty()) {
-            const dataptr = data.valueptr;
-            try {
-                for (const listener of target.allListeners()) {
-                    try {
-                        if (listener(dataptr, data.length, ni, packetId) === CANCEL) {
-                            return 1;
-                        }
-                    } catch (err) {
-                        events.errorFire(err);
+        if (target === null || target.isEmpty()) throw Error("no listener but onPacketSend fired.");
+        const dataptr = data.valueptr;
+        try {
+            for (const listener of target.allListeners()) {
+                try {
+                    if (listener(dataptr, data.length, ni, packetId) === CANCEL) {
+                        return 1;
                     }
+                } catch (err) {
+                    events.errorFire(err);
                 }
-            } finally {
-                decay(dataptr);
             }
+        } finally {
+            decay(dataptr);
         }
     } catch (err) {
         remapAndPrintError(err);
@@ -213,9 +203,9 @@ bedrockServer.withLoading().then(() => {
     );
 
     // hook before
-    asmcode.onPacketBefore = makefunc.np(onPacketBefore, void_t, { name: "onPacketBefore" }, OnPacketRBP, StaticPointer);
+    asmcode.onPacketBefore = makefunc.np(onPacketBefore, void_t, { name: "onPacketBefore" }, OnPacketRBP, StaticPointer, int32_t, NetworkConnection);
 
-    asmcode.packetBeforeOriginal = proc["<lambda_9ee371f3d5058cafcd585ab3d88075ae>::operator()"];
+    asmcode.packetBeforeOriginal = proc["<lambda_812547cccbd5299596c99e3086ed20b0>::operator()"];
     procHacker.patching(
         "hook-packet-before",
         packetizeSymbol,
@@ -227,13 +217,13 @@ bedrockServer.withLoading().then(() => {
         [
             0x48, 0x8D, 0x95, 0x60, 0x01, 0x00, 0x00,  // lea rdx,qword ptr ss:[rbp+160]
             0x48, 0x8D, 0x4D, 0xf8,                    // lea rcx,qword ptr ss:[rbp-8]
-            0xE8, null, null, null, null,              // call <bedrock_server.<lambda_9ee371f3d5058cafcd585ab3d88075ae>::operator()>
+            0xE8, null, null, null, null,              // call <bedrock_server.<lambda_812547cccbd5299596c99e3086ed20b0>::operator()
             0x90,                                      // nop
         ],
     );
 
     // hook after
-    asmcode.onPacketAfter = makefunc.np(onPacketAfter, void_t, null, Packet, NetworkIdentifier);
+    asmcode.onPacketAfter = makefunc.np(onPacketAfter, void_t, null, Packet, NetworkIdentifier, int32_t);
     asmcode.handlePacket = proc[packetHandleSymbol];
     asmcode.__guard_dispatch_icall_fptr = proc["__guard_dispatch_icall_fptr"].getPointer();
 
@@ -254,8 +244,10 @@ bedrockServer.withLoading().then(() => {
     );
 
     // hook send
-    asmcode.onPacketSend = makefunc.np(onPacketSend, int32_t, null, void_t, NetworkIdentifier, Packet);
+    asmcode.onPacketSend = makefunc.np(onPacketSend, int32_t, null, int32_t, NetworkIdentifier, Packet);
     asmcode.sendOriginal = procHacker.hookingRaw("?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket@@W4SubClientId@@@Z", asmcode.packetSendHook);
+
+    asmcode.packetSendAllCancelPoint = proc[sendToClientsSymbol].add(0xc3);
 
     // hook send all
     procHacker.patching(
@@ -271,12 +263,8 @@ bedrockServer.withLoading().then(() => {
             0x49, 0x8D, 0x96, 0x08, 0x02, 0x00, 0x00,   // lea rdx,qword ptr ds:[r14+208]
             0x49, 0x8B, 0xCF,                           // mov rcx,r15
             0x48, 0x8B, 0x40, 0x18,                     // mov rax,qword ptr ds:[rax+18]
-            0xFF, 0x15, 0x62, 0x58, 0xB9, 0x01,         // call qword ptr ds:[<__guard_dispatch_icall_fptr>]
-            0x4D, 0x8B, 0x8E, 0x40, 0x02, 0x00, 0x00,   // mov r9,qword ptr ds:[r14+240]
-            0x4D, 0x8B, 0xC7,                           // mov r8,r15
-            0x48, 0x8B, 0xD3,                           // mov rdx,rbx
-            0x49, 0x8B, 0xCE,                           // mov rcx,r14
-            0xE8, 0x7D, 0x61, 0xFE, 0xFF,               // call <bedrock_server.private: void __cdecl NetworkSystem::_sendInternal(class NetworkIdentifier const &, c
+            0xFF, 0x15, null, null, null, null,         // call qword ptr ds:[<__guard_dispatch_icall_fptr>]
+            // CAUTION: jump target after this
         ],
     );
 
@@ -286,4 +274,5 @@ bedrockServer.withLoading().then(() => {
         "?_sendInternal@NetworkSystem@@AEAAXAEBVNetworkIdentifier@@AEBVPacket@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z",
         asmcode.packetSendInternalHook,
     );
+    console.log(asmcode.sendInternalOriginal);
 });
