@@ -64,9 +64,10 @@ events.levelTick.on(() => {
     bedrockServer.executeCommand("/gamerule spawnRadius 128", true);
     counter = counter + 1;
     if (counter >= 40){
-        bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
+        // bedrockServer.executeCommand("/clone 0 -60 0 0 -60 0 0 -60 1", true);
         counter = 0;
     }
+    // doop
 });
 
 //add ability to break cursed end portals
