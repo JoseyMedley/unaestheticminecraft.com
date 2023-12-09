@@ -12,6 +12,20 @@ import { AttributeId, AttributeInstance, BaseAttributeMap } from "./attribute";
 import { Block, BlockSource } from "./block";
 import { BlockPos, Vec2, Vec3 } from "./blockpos";
 import type { CommandPermissionLevel } from "./command";
+import type {
+    CommandBlockComponent,
+    ConditionalBandwidthOptimizationComponent,
+    ContainerComponent,
+    DamageSensorComponent,
+    NameableComponent,
+    NavigationComponent,
+    NpcComponent,
+    PhysicsComponent,
+    ProjectileComponent,
+    PushableComponent,
+    RideableComponent,
+    ShooterComponent,
+} from "./components";
 import { CxxOptional } from "./cxxoptional";
 import type { Dimension } from "./dimension";
 import { MobEffect, MobEffectIds, MobEffectInstance } from "./effects";
@@ -488,7 +502,7 @@ export class OwnerStorageEntity extends AbstractClass {
     }
 }
 
-@nativeClass(0x18)
+@nativeClass(0x20)
 export class EntityRefTraits extends AbstractClass {
     @nativeField(OwnerStorageEntity)
     context: OwnerStorageEntity;
@@ -507,11 +521,15 @@ export class WeakEntityRef extends AbstractClass {
     }
 }
 
+// class EntityId, naming to avoid symbol overlap
+// @nativeClass(0x8)
+// class WrappedEntityId extends NativeClass {}
+
 @nativeClass(null)
-export class EntityContextBase extends AbstractClass {
+export class EntityContext extends AbstractClass {
     @nativeField(VoidPointer.ref())
     enttRegistry: VoidPointer; // accessed on ServerNetworkHandler::_displayGameMessage
-    @nativeField(int32_t)
+    @nativeField(int32_t, 0x10)
     entityId: int32_t;
 
     isValid(): boolean {
@@ -522,16 +540,24 @@ export class EntityContextBase extends AbstractClass {
         return this.isValid();
     }
     _enttRegistry(): VoidPointer {
-        return this.enttRegistry;
+        abstract();
+    }
+    /**
+     * Returns copied EntityId
+     */
+    _getEntityId(): VoidPointer /** WrappedEntityId */ {
+        abstract();
     }
 }
 
-@nativeClass(null)
-export class EntityContext extends EntityContextBase {}
+/** @deprecated merged into EntityContext */
+export const EntityContextBase = EntityContext;
+/** @deprecated merged into EntityContext */
+export type EntityContextBase = EntityContext;
 
 export class Actor extends AbstractClass {
     vftable: VoidPointer;
-    ctxbase: EntityContextBase;
+    ctxbase: EntityContext;
     /** @deprecated use {@link getIdentifier()} instead */
     get identifier(): EntityId {
         return this.getIdentifier();
@@ -1477,8 +1503,29 @@ export class Actor extends AbstractClass {
     setVariant(variant: int32_t): void {
         abstract();
     }
+    protected _tryGetComponent(comp: string): any | null {
+        abstract();
+    }
+    tryGetComponent<K extends keyof ComponentsClassMap, T extends ComponentsClassMap[K]>(comp: K): T | null {
+        return this._tryGetComponent(comp);
+    }
 }
 mangle.update(Actor);
+
+interface ComponentsClassMap {
+    "minecraft:physics": PhysicsComponent;
+    "minecraft:projectile": ProjectileComponent;
+    "minecraft:damage_sensor": DamageSensorComponent;
+    "minecraft:command_block": CommandBlockComponent;
+    "minecraft:nameable": NameableComponent;
+    "minecraft:navigation": NavigationComponent;
+    "minecraft:npc": NpcComponent;
+    "minecraft:rideable": RideableComponent;
+    "minecraft:container": ContainerComponent;
+    "minecraft:pushable": PushableComponent;
+    "minecraft:shooter": ShooterComponent;
+    "minecraft:conditional_bandwidth_optimization": ConditionalBandwidthOptimizationComponent;
+}
 
 @nativeClass(null)
 export class SynchedActorDataEntityWrapper extends AbstractClass {

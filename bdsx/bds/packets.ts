@@ -385,6 +385,7 @@ export class TickSyncPacket extends Packet {
     // unknown
 }
 
+/** @deprecated Removed packet, use LevelSoundEventPacket instead. */
 @nativeClass(null)
 export class LevelSoundEventPacketV1 extends Packet {
     // unknown
@@ -803,6 +804,7 @@ export class CraftingDataPacket extends Packet {
     // unknown
 }
 
+/** @deprecated removed */
 @nativeClass(null)
 export class CraftingEventPacket extends Packet {
     @nativeField(uint8_t)
@@ -899,7 +901,7 @@ export class SetPlayerGameTypePacket extends Packet {
     playerGameType: GameType;
 }
 
-@nativeClass(0x2f0)
+@nativeClass(0x2e8)
 export class PlayerListEntry extends AbstractClass {
     @nativeField(ActorUniqueID)
     id: ActorUniqueID;
@@ -1569,7 +1571,7 @@ export class AvailableActorIdentifiersPacket extends Packet {
     // unknown
 }
 
-/** @deprecated Unused packet, use LevelSoundEventPacket instead. */
+/** @deprecated Removed packet, use LevelSoundEventPacket instead. */
 @nativeClass(null)
 export class LevelSoundEventPacketV2 extends Packet {
     // unknown
@@ -1754,6 +1756,10 @@ export class NetworkSettingsPacket extends Packet {
 
 @nativeClass(null)
 export class PlayerAuthInputPacket extends Packet {
+    getInput(inputData: PlayerAuthInputPacket.InputData): boolean {
+        abstract();
+    }
+
     @nativeField(float32_t)
     pitch: float32_t;
     @nativeField(float32_t)
@@ -1761,29 +1767,33 @@ export class PlayerAuthInputPacket extends Packet {
     @nativeField(Vec3)
     readonly pos: Vec3;
     @nativeField(float32_t)
-    moveX: float32_t;
-    @nativeField(float32_t)
-    moveZ: float32_t;
-
+    headYaw: float32_t;
     /** @deprecated */
     get heaYaw(): float32_t {
         return this.headYaw;
     }
 
-    @nativeField(float32_t)
-    headYaw: float32_t;
-    @nativeField(bin64_t)
-    inputFlags: bin64_t;
-    @nativeField(uint32_t)
-    inputMode: uint32_t;
-    @nativeField(uint32_t)
-    playMode: uint32_t;
-    @nativeField(Vec3)
-    readonly vrGazeDirection: Vec3;
-    @nativeField(bin64_t)
-    tick: bin64_t;
     @nativeField(Vec3)
     readonly delta: Vec3;
+    /** @deprecated use delta */
+    @nativeField(float32_t, { ghost: true })
+    moveX: float32_t;
+    /** @deprecated use delta */
+    @nativeField(float32_t, { ghost: true })
+    moveY: float32_t;
+    /** @deprecated use delta */
+    @nativeField(float32_t, { ghost: true })
+    moveZ: float32_t;
+    @nativeField(Vec3)
+    readonly vrGazeDirection: Vec3;
+    @nativeField(uint64_as_float_t, 0x70)
+    inputFlags: uint64_as_float_t; // bitset, InputData
+    @nativeField(int32_t)
+    inputMode: int32_t;
+    @nativeField(uint32_t)
+    playMode: uint32_t;
+    @nativeField(uint64_as_float_t, { offset: 0x4, relative: true })
+    tick: uint64_as_float_t;
 }
 
 export namespace PlayerAuthInputPacket {
@@ -1813,7 +1823,27 @@ export namespace PlayerAuthInputPacket {
         DescendScaffolding,
         SneakToggleDown,
         PersistSneak,
-        // These are all from IDA, PlayerAuthInputPacket::InputData in 1.14.60.5, 25-36 were not implemented
+        // 0-24: These are all from IDA, PlayerAuthInputPacket::InputData in 1.14.60.5
+        StartSprinting,
+        StopSprinting,
+        StartSneaking,
+        StopSneaking,
+        StartSwimming,
+        StopSwimming,
+        StartJumping,
+        StartGliding,
+        StopGliding,
+        PerformItemInteraction,
+        PerformBlockActions,
+        PerformItemStackRequest,
+        HandledTeleport,
+        Emoting,
+        MissedSwing,
+        StartCrawling,
+        StopCrawling,
+        StartFlying,
+        StopFlying,
+        AckActorData,
     }
 }
 
@@ -2318,6 +2348,23 @@ export class OpenSignPacket extends Packet {
     // unknown
 }
 
+@nativeClass(null)
+export class AgentAnimationPacket extends Packet {
+    // unknown
+}
+
+@nativeClass(null)
+export class RefreshEntitlementsPacket extends Packet {
+    // unknown
+}
+@nativeClass(null)
+export class PlayerToggleCrafterSlotRequestPacket extends Packet {
+    // unknown
+}
+@nativeClass(null)
+export class SetPlayerInventoryOptionsPacket extends Packet {
+    // unknown
+}
 export const PacketIdToType = {
     0x01: LoginPacket,
     0x02: PlayStatusPacket,
@@ -2520,6 +2567,10 @@ export const PacketIdToType = {
     0x12d: CompressedBiomeDefinitionListPacket,
     0x12e: TrimDataPacket,
     0x12f: OpenSignPacket,
+    0x130: AgentAnimationPacket,
+    0x131: RefreshEntitlementsPacket,
+    0x132: PlayerToggleCrafterSlotRequestPacket,
+    0x133: SetPlayerInventoryOptionsPacket,
 };
 export type PacketIdToType = {
     [key in keyof typeof PacketIdToType]: InstanceType<(typeof PacketIdToType)[key]>;

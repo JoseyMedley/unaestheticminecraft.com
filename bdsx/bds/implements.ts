@@ -43,6 +43,7 @@ import {
     ActorDamageByChildActorSource,
     ActorDamageCause,
     ActorDamageSource,
+    ActorDataIDs,
     ActorDefinitionIdentifier,
     ActorRuntimeID,
     ActorType,
@@ -50,7 +51,6 @@ import {
     DimensionId,
     DistanceSortedActor,
     EntityContext,
-    EntityContextBase,
     EntityRefTraits,
     ItemActor,
     Mob,
@@ -81,7 +81,24 @@ import {
 import { CommandName } from "./commandname";
 import { CommandOrigin, ServerCommandOrigin, VirtualCommandOrigin } from "./commandorigin";
 import "./commandparsertypes";
-import { HitResult, OnHitSubcomponent } from "./components";
+import {
+    CommandBlockComponent,
+    ConditionalBandwidthOptimizationComponent,
+    ContainerComponent,
+    DamageSensorComponent,
+    HitResult,
+    NameableComponent,
+    NavigationComponent,
+    NpcComponent,
+    OnHitSubcomponent,
+    Path,
+    PhysicsComponent,
+    ProjectileComponent,
+    PushableComponent,
+    RideableComponent,
+    ShooterComponent,
+    SyncedActorDataComponent,
+} from "./components";
 import { Certificate, ConnectionRequest, JsonValue } from "./connreq";
 import { CxxOptional, CxxOptionalToUndefUnion } from "./cxxoptional";
 import { Dimension } from "./dimension";
@@ -164,6 +181,7 @@ import {
     ItemStackRequestData,
     ItemStackRequestPacket,
     ItemStackRequestSlotInfo,
+    PlayerAuthInputPacket,
     PlayerListEntry,
     PlayerListPacket,
     SetDifficultyPacket,
@@ -515,14 +533,14 @@ Spawner.prototype.spawnMob = function (
 
 // dimension.ts
 const fetchNearestAttackablePlayer$nonBlockPos = procHacker.js(
-    "?fetchNearestAttackablePlayer@Dimension@@QEAAPEAVPlayer@@AEAVActor@@M@Z",
+    "?fetchNearestAttackablePlayer@Dimension@@QEBAPEAVPlayer@@AEAVActor@@M@Z",
     Player,
     { this: Dimension },
     Actor,
     float32_t,
 );
 const fetchNearestAttackablePlayer$withBlockPos = procHacker.js(
-    "?fetchNearestAttackablePlayer@Dimension@@QEAAPEAVPlayer@@VBlockPos@@MPEAVActor@@@Z",
+    "?fetchNearestAttackablePlayer@Dimension@@QEBAPEAVPlayer@@VBlockPos@@MPEAVActor@@@Z",
     Player,
     { this: Dimension },
     BlockPos,
@@ -741,8 +759,8 @@ const SynchedActorDataEntityWrapper$getString = procHacker.js(
     uint16_t,
 );
 Actor.prototype.getScoreTag = function () {
-    const dataEntityWrapper = this.add(0x54); // accessed from Actor::setScoreTag
-    return SynchedActorDataEntityWrapper$getString(dataEntityWrapper, 0x54);
+    // accessed from Actor::setScoreTag
+    return SynchedActorDataEntityWrapper$getString(this.getEntityData(), 0x54);
 };
 Actor.prototype.setScoreTag = procHacker.js(
     "?setScoreTag@Actor@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z",
@@ -754,7 +772,7 @@ Actor.prototype.getDimensionBlockSource = Actor.prototype.getRegion = procHacker
     this: Actor,
 });
 Actor.prototype.getUniqueIdPointer = procHacker.js("?getOrCreateUniqueID@Actor@@QEBAAEBUActorUniqueID@@XZ", StaticPointer, { this: Actor });
-Actor.prototype.getEntityTypeId = procHacker.jsv("??_7Actor@@6B@", "?getEntityTypeId@Actor@@UEBA?AW4ActorType@@XZ", int32_t, { this: Actor }); // ActorType getEntityTypeId()
+Actor.prototype.getEntityTypeId = procHacker.js("?getEntityTypeId@Actor@@QEBA?AW4ActorType@@XZ", int32_t, { this: Actor }); // ActorType getEntityTypeId()
 Actor.prototype.getRuntimeID = procHacker.js("?getRuntimeID@Actor@@QEBA?AVActorRuntimeID@@XZ", ActorRuntimeID, { this: Actor, structureReturn: true });
 Actor.prototype.getDimension = procHacker.js("?getDimension@Actor@@QEBAAEAVDimension@@XZ", Dimension, { this: Actor });
 Actor.prototype.getDimensionId = procHacker.js("?getDimensionId@Actor@@QEBA?AV?$AutomaticID@VDimension@@H@@XZ", int32_t, { this: Actor, structureReturn: true });
@@ -1013,7 +1031,11 @@ Actor.prototype.getLastDeathDimension = procHacker.jsv(
 (Actor.prototype as any)._getViewVector = procHacker.js("?getViewVector@Actor@@QEBA?AVVec3@@M@Z", Vec3, { this: Actor, structureReturn: true }, float32_t);
 Actor.prototype.isImmobile = procHacker.jsv("??_7Actor@@6B@", "?isImmobile@Actor@@UEBA_NXZ", bool_t, { this: Actor });
 Actor.prototype.isSwimming = procHacker.js("?isSwimming@Actor@@QEBA_NXZ", bool_t, { this: Actor });
-Actor.prototype.setSize = procHacker.js("?setSize@Actor@@UEAAXMM@Z", void_t, { this: Player }, float32_t, float32_t);
+Actor.prototype.setSize = function (width, height) {
+    const entityData = this.getEntityData();
+    entityData.setFloat(ActorDataIDs.Width, width);
+    entityData.setFloat(ActorDataIDs.Height, height);
+};
 Actor.prototype.isInsidePortal = procHacker.js("?isInsidePortal@Actor@@QEBA_NXZ", bool_t, { this: Actor });
 Actor.prototype.isInWorld = procHacker.js("?isInWorld@Actor@@QEBA_NXZ", bool_t, { this: Actor });
 Actor.prototype.isInWaterOrRain = procHacker.js("?isInWaterOrRain@Actor@@QEBA_NXZ", bool_t, { this: Actor });
@@ -1058,6 +1080,212 @@ Actor.prototype.getOwner = procHacker.js("?getOwner@Actor@@QEBAPEAVMob@@XZ", Mob
 Actor.prototype.setOwner = procHacker.js("?setOwner@Actor@@UEAAXUActorUniqueID@@@Z", void_t, { this: Actor }, ActorUniqueID);
 Actor.prototype.getVariant = procHacker.js("?getVariant@Actor@@QEBAHXZ", int32_t, { this: Actor });
 Actor.prototype.setVariant = procHacker.js("?setVariant@Actor@@QEAAXH@Z", void_t, { this: Actor }, int32_t);
+
+const getProjectileComponent = procHacker.js("??$tryGetComponent@VProjectileComponent@@@Actor@@QEAAPEAVProjectileComponent@@XZ", ProjectileComponent, null, Actor);
+const getPhysicsComponent = procHacker.js("??$tryGetComponent@VPhysicsComponent@@@Actor@@QEAAPEAVPhysicsComponent@@XZ", PhysicsComponent, null, Actor);
+const getDamageSensorComponent = procHacker.js(
+    "??$tryGetComponent@VDamageSensorComponent@@@Actor@@QEBAPEBVDamageSensorComponent@@XZ",
+    DamageSensorComponent,
+    null,
+    Actor,
+);
+const getCommandBlockComponent = procHacker.js(
+    "??$tryGetComponent@VCommandBlockComponent@@@Actor@@QEAAPEAVCommandBlockComponent@@XZ",
+    CommandBlockComponent,
+    null,
+    Actor,
+);
+const getNameableComponent = procHacker.js("??$tryGetComponent@VNameableComponent@@@Actor@@QEAAPEAVNameableComponent@@XZ", NameableComponent, null, Actor);
+const getNavigationComponent = procHacker.js("??$tryGetComponent@VNavigationComponent@@@Actor@@QEBAPEBVNavigationComponent@@XZ", NavigationComponent, null, Actor);
+const getNpcComponent = procHacker.js("??$tryGetComponent@VNpcComponent@@@Actor@@QEAAPEAVNpcComponent@@XZ", NpcComponent, null, Actor);
+const getRideableComponent = procHacker.js("??$tryGetComponent@VRideableComponent@@@Actor@@QEAAPEAVRideableComponent@@XZ", RideableComponent, null, Actor);
+const getContainerComponent = procHacker.js("??$tryGetComponent@VContainerComponent@@@Actor@@QEAAPEAVContainerComponent@@XZ", ContainerComponent, null, Actor);
+const getPushableComponent = procHacker.js("??$tryGetComponent@VPushableComponent@@@Actor@@QEAAPEAVPushableComponent@@XZ", PushableComponent, null, Actor);
+const getShooterComponent = procHacker.js("??$tryGetComponent@VShooterComponent@@@Actor@@QEAAPEAVShooterComponent@@XZ", ShooterComponent, null, Actor);
+const getConditionalBandwidthComponent = procHacker.js(
+    "??$tryGetComponent@VConditionalBandwidthOptimizationComponent@@@Actor@@QEAAPEAVConditionalBandwidthOptimizationComponent@@XZ",
+    ConditionalBandwidthOptimizationComponent,
+    null,
+    Actor,
+);
+
+(Actor.prototype as any)._tryGetComponent = (comp: string) => {
+    switch (comp) {
+        case "minecraft:projectile":
+            return getProjectileComponent(this);
+        case "minecraft:physics":
+            return getPhysicsComponent(this);
+        case "minecraft:damage_sensor":
+            return getDamageSensorComponent(this);
+        case "minecraft:command_block":
+            return getCommandBlockComponent(this);
+        case "minecraft:nameable":
+            return getNameableComponent(this);
+        case "minecraft:navigation":
+            return getNavigationComponent(this);
+        case "minecraft:npc":
+            return getNpcComponent(this);
+        case "minecraft:rideable":
+            return getRideableComponent(this);
+        case "minecraft:container":
+            return getContainerComponent(this);
+        case "minecraft:pushable":
+            return getPushableComponent(this);
+        case "minecraft:shooter":
+            return getShooterComponent(this);
+        case "minecraft:conditional_bandwidth_optimization":
+            return getConditionalBandwidthComponent(this);
+        default:
+            return null;
+    }
+};
+
+PhysicsComponent.prototype.setHasCollision = procHacker.js(
+    "?setHasCollision@PhysicsComponent@@QEAAXAEAVActor@@_N@Z",
+    void_t,
+    { this: PhysicsComponent },
+    Actor,
+    bool_t,
+);
+PhysicsComponent.prototype.setAffectedByGravity = procHacker.js(
+    "?setAffectedByGravity@PhysicsComponent@@QEBAXAEAUSynchedActorDataComponent@@_N@Z",
+    void_t,
+    { this: PhysicsComponent },
+    SyncedActorDataComponent,
+    bool_t,
+);
+
+ProjectileComponent.prototype.shoot = procHacker.js("?shoot@ProjectileComponent@@QEAAXAEAVActor@@0@Z", void_t, { this: ProjectileComponent }, Actor, Actor);
+ProjectileComponent.prototype.setOwnerId = procHacker.js(
+    "?setOwnerId@ProjectileComponent@@QEAAXUActorUniqueID@@@Z",
+    void_t,
+    { this: ProjectileComponent },
+    ActorUniqueID,
+);
+
+DamageSensorComponent.prototype.isFatal = procHacker.js("?isFatal@DamageSensorComponent@@QEBA_NXZ", bool_t, { this: DamageSensorComponent });
+DamageSensorComponent.prototype.getDamageModifier = procHacker.js("?getDamageModifier@DamageSensorComponent@@QEAAMXZ", float32_t, { this: DamageSensorComponent });
+
+CommandBlockComponent.prototype.addAdditionalSaveData = procHacker.js(
+    "?addAdditionalSaveData@CommandBlockComponent@@QEBAXAEAVCompoundTag@@@Z",
+    void_t,
+    { this: CommandBlockComponent },
+    CompoundTag,
+);
+CommandBlockComponent.prototype.getTicking = procHacker.js("?getTicking@CommandBlockComponent@@QEBA_NXZ", bool_t, { this: CommandBlockComponent });
+CommandBlockComponent.prototype.setTicking = procHacker.js("?setTicking@CommandBlockComponent@@QEAAX_N@Z", void_t, { this: CommandBlockComponent }, bool_t);
+CommandBlockComponent.prototype.resetCurrentTicking = procHacker.js("?resetCurrentTick@CommandBlockComponent@@QEAAXXZ", void_t, { this: CommandBlockComponent });
+
+NameableComponent.prototype.nameEntity = procHacker.js(
+    "?nameEntity@NameableComponent@@QEAAXAEAVActor@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z",
+    void_t,
+    { this: NameableComponent },
+    Actor,
+    CxxString,
+);
+const NavigationComponent$$createPath$$Actor = procHacker.js(
+    "?createPath@NavigationComponent@@QEAA?AV?$unique_ptr@VPath@@U?$default_delete@VPath@@@std@@@std@@AEAVMob@@AEAVActor@@@Z",
+    Path.ref(),
+    null,
+    NavigationComponent,
+    Actor,
+    Actor,
+);
+const NavigationComponent$$createPath$$Vec3 = procHacker.js(
+    "?createPath@NavigationComponent@@QEAA?AV?$unique_ptr@VPath@@U?$default_delete@VPath@@@std@@@std@@AEAVMob@@AEBVVec3@@@Z",
+    Path.ref(),
+    null,
+    NavigationComponent,
+    Actor,
+    Vec3,
+);
+(NavigationComponent.prototype as any)._createPath = function (component: NavigationComponent, actor: Actor, target: Actor | Vec3): Path {
+    if (target instanceof Actor) {
+        return NavigationComponent$$createPath$$Actor(component, actor, target);
+    } else {
+        return NavigationComponent$$createPath$$Vec3(component, actor, target);
+    }
+};
+NavigationComponent.prototype.setPath = procHacker.js(
+    "?setPath@NavigationComponent@@QEAAXV?$unique_ptr@VPath@@U?$default_delete@VPath@@@std@@@std@@@Z",
+    void_t,
+    { this: NavigationComponent },
+    Path.ref(),
+);
+NavigationComponent.prototype.stop = procHacker.js("?stop@NavigationComponent@@QEAAXAEAVMob@@@Z", void_t, { this: NavigationComponent }, Mob);
+NavigationComponent.prototype.getMaxDistance = procHacker.js(
+    "?getMaxDistance@NavigationComponent@@QEBAMAEBVActor@@@Z",
+    float32_t,
+    { this: NavigationComponent },
+    Actor,
+);
+NavigationComponent.prototype.isDone = procHacker.js("?isDone@NavigationComponent@@QEBA_NXZ", bool_t, { this: NavigationComponent });
+NavigationComponent.prototype.getSpeed = procHacker.js("?getSpeed@NavigationComponent@@QEBAMXZ", float32_t, { this: NavigationComponent });
+NavigationComponent.prototype.getAvoidSun = procHacker.js("?getAvoidSun@NavigationComponent@@QEBA_NXZ", bool_t, { this: NavigationComponent });
+NavigationComponent.prototype.getCanFloat = procHacker.js("?getCanFloat@NavigationComponent@@QEBA_NXZ", bool_t, { this: NavigationComponent });
+NavigationComponent.prototype.getCanPathOverLava = procHacker.js("?getCanPathOverLava@NavigationComponent@@QEBA_NXZ", bool_t, { this: NavigationComponent });
+NavigationComponent.prototype.getLastStuckCheckPosition = procHacker.js("?getLastStuckCheckPosition@NavigationComponent@@QEBA?AVVec3@@XZ", Vec3, {
+    this: NavigationComponent,
+});
+NavigationComponent.prototype.isStuck = procHacker.js("?isStuck@NavigationComponent@@QEBA_NH@Z", bool_t, { this: NavigationComponent }, int32_t);
+NavigationComponent.prototype.setCanFloat = procHacker.js("?setCanFloat@NavigationComponent@@QEAAX_N@Z", void_t, { this: NavigationComponent }, bool_t);
+NavigationComponent.prototype.setAvoidWater = procHacker.js("?setAvoidWater@NavigationComponent@@QEAAX_N@Z", void_t, { this: NavigationComponent }, bool_t);
+NavigationComponent.prototype.setAvoidSun = procHacker.js("?setAvoidSun@NavigationComponent@@QEAAX_N@Z", void_t, { this: NavigationComponent }, bool_t);
+NavigationComponent.prototype.setSpeed = procHacker.js("?setSpeed@NavigationComponent@@QEAAXM@Z", void_t, { this: NavigationComponent }, float32_t);
+
+RideableComponent.prototype.areSeatsFull = procHacker.js("?areSeatsFull@RideableComponent@@QEBA_NAEBVActor@@@Z", bool_t, { this: RideableComponent }, Actor);
+RideableComponent.prototype.canAddPassenger = procHacker.js(
+    "?canAddPassenger@RideableComponent@@QEBA_NAEBVActor@@AEAV2@@Z",
+    bool_t,
+    { this: RideableComponent },
+    Actor,
+    Actor,
+);
+RideableComponent.prototype.pullInEntity = procHacker.js("?pullInEntity@RideableComponent@@QEBA_NAEAVActor@@0@Z", bool_t, { this: RideableComponent }, Actor, Actor);
+
+const ContainerComponent$addItem$ItemActor = procHacker.js("?addItem@ContainerComponent@@QEAA_NAEAVItemActor@@@Z", bool_t, null, ContainerComponent, ItemActor);
+const ContainerComponent$addItem$ItemStack = procHacker.js("?addItem@ContainerComponent@@QEAA_NAEAVItemStack@@@Z", bool_t, null, ContainerComponent, ItemStack);
+const ContainerComponent$addItem$ItemStack$count = procHacker.js(
+    "?addItem@ContainerComponent@@QEAA_NAEAVItemStack@@HH@Z",
+    bool_t,
+    null,
+    ContainerComponent,
+    ItemStack,
+    int32_t,
+    int32_t,
+);
+(ContainerComponent.prototype as any)._addItem = function (component: ContainerComponent, item: ItemStack | ItemActor, count?: number, data: number = 0): boolean {
+    if (item instanceof ItemActor) {
+        return ContainerComponent$addItem$ItemActor(component, item);
+    } else if (count !== undefined) {
+        return ContainerComponent$addItem$ItemStack$count(component, item, count, data);
+    } else {
+        return ContainerComponent$addItem$ItemStack(component, item);
+    }
+};
+ContainerComponent.prototype.getEmptySlotsCount = procHacker.js("?getEmptySlotsCount@ContainerComponent@@QEBAHXZ", int64_as_float_t, { this: ContainerComponent });
+ContainerComponent.prototype.getSlots = procHacker.js(
+    "?getSlots@ContainerComponent@@QEBA?BV?$vector@PEBVItemStack@@V?$allocator@PEBVItemStack@@@std@@@std@@XZ",
+    CxxVector.make(ItemStack.ref()),
+    { this: Container, structureReturn: true },
+);
+const PushableComponent$pushByActor = procHacker.js("?push@PushableComponent@@QEAAXAEAVActor@@0_N@Z", void_t, null, PushableComponent, Actor, Actor, bool_t);
+const PushableComponent$pushByPos = procHacker.js("?push@PushableComponent@@QEAAXAEAVActor@@AEBVVec3@@@Z", void_t, null, PushableComponent, Actor, Vec3);
+(PushableComponent.prototype as any)._push = function (entity: Actor, entityOrVec: Actor | Vec3, bool: bool_t) {
+    if (bool !== undefined) {
+        return PushableComponent$pushByActor(this, entity, entityOrVec as Actor, bool);
+    } else {
+        return PushableComponent$pushByPos(this, entity, entityOrVec as Vec3);
+    }
+};
+ShooterComponent.prototype.shootProjectile = procHacker.js(
+    "?_shootProjectile@ShooterComponent@@AEAAXAEAVActor@@AEBUActorDefinitionIdentifier@@H@Z",
+    void_t,
+    { this: ShooterComponent },
+    Actor,
+    ActorDefinitionIdentifier,
+    int32_t,
+);
 
 Mob.prototype.getArmorValue = procHacker.jsv("??_7Mob@@6B@", "?getArmorValue@Mob@@UEBAHXZ", int32_t, { this: Actor });
 Mob.prototype.knockback = procHacker.jsv(
@@ -1139,7 +1367,7 @@ SynchedActorDataEntityWrapper.prototype.setInt = procHacker.js(
     int32_t.ref() /** int const & */,
 );
 
-@nativeClass(0x18)
+@nativeClass(0x20)
 class StackResultStorageEntity extends NativeClass {
     constructWith(weakEntityRef: WeakEntityRef): void {
         abstract();
@@ -1328,9 +1556,9 @@ procHacker.hookingRawWithCallOriginal("??1Actor@@UEAA@XZ", asmcode.actorDestruct
 
 // player.ts
 Player.abstract({
-    enderChestContainer: [EnderChestContainer.ref(), 0xc88], // accessed in Player::Player+1222 (the line between two if-else statements, the first if statement calls EnderChestContainer::EnderChestContainer)
-    playerUIContainer: [PlayerUIContainer, 0xd40], // accessed in Player::readAdditionalSaveData+1256 when calling PlayerUIContainer::load
-    deviceId: [CxxString, 0x1d08], // accessed in AddPlayerPacket::AddPlayerPacket(const Player &)+193 (the string assignment between LayeredAbilities::LayeredAbilities and Player::getPlatform)
+    enderChestContainer: [EnderChestContainer.ref(), 0xcd8], // accessed in Player::Player+1222 (the line between two if-else statements, the first if statement calls EnderChestContainer::EnderChestContainer)
+    playerUIContainer: [PlayerUIContainer, 0xda0], // accessed in Player::readAdditionalSaveData+1256 when calling PlayerUIContainer::load
+    deviceId: [CxxString, 0x1d78], // accessed in AddPlayerPacket::AddPlayerPacket(const Player &)+193 (the string assignment between LayeredAbilities::LayeredAbilities and Player::getPlatform)
 });
 (Player.prototype as any)._setName = procHacker.js(
     "?setName@Player@@QEAAXAEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z",
@@ -1416,21 +1644,31 @@ class UserEntityIdentifierComponent extends NativeClass {
     certificate: Certificate; // it's ExtendedCertificate actually
 }
 
-EntityContextBase.prototype.isValid = procHacker.js("?isValid@EntityContextBase@@QEBA_NXZ", bool_t, { this: EntityContextBase });
+EntityContext.prototype.isValid = procHacker.js("?isValid@EntityContext@@QEBA_NXZ", bool_t, {
+    this: EntityContext,
+});
+EntityContext.prototype._enttRegistry = procHacker.js("?_registry@EntityContext@@QEBAAEAVEntityRegistry@@XZ", VoidPointer, {
+    this: EntityContext,
+});
+EntityContext.prototype._getEntityId = procHacker.js("?_getEntityId@EntityContext@@IEBA?AVEntityId@@XZ", VoidPointer, {
+    this: EntityContext,
+    structureReturn: true,
+});
 
-const Registry_getEntityIdentifierComponent = procHacker.js(
-    "??$try_get@VUserEntityIdentifierComponent@@@?$basic_registry@VEntityId@@V?$allocator@VEntityId@@@std@@@entt@@QEAA?A_PVEntityId@@@Z",
+const TryGetUserEntityIdComponent = procHacker.js(
+    "??$tryGetComponent@VUserEntityIdentifierComponent@@@Actor@@QEAAPEAVUserEntityIdentifierComponent@@XZ",
     UserEntityIdentifierComponent,
     null,
-    VoidPointer,
-    int32_t.ref(),
+    Actor,
 );
 
+/**
+ * ~1.20.50 implementing part of ServerNetworkHandler::_displayGameMessage
+ * 1.20.50~ aspiring from existing, get components manually
+ */
 Player.prototype.getCertificate = function () {
     // part of ServerNetworkHandler::_displayGameMessage
-    const base = this.ctxbase;
-    const registry = base.enttRegistry;
-    return Registry_getEntityIdentifierComponent(registry, base.entityId).certificate;
+    return TryGetUserEntityIdComponent(this).certificate;
 };
 Player.prototype.getDestroySpeed = procHacker.js("?getDestroySpeed@Player@@QEBAMAEBVBlock@@@Z", float32_t, { this: Player }, Block.ref());
 Player.prototype.canDestroy = procHacker.js("?canDestroy@Player@@QEBA_NAEBVBlock@@@Z", bool_t, { this: Player }, Block.ref());
@@ -1456,10 +1694,7 @@ Player.prototype.getXuid = procHacker.js("?getXuid@Player@@UEBA?AV?$basic_string
     structureReturn: true,
 });
 Player.prototype.getUuid = function () {
-    const base = this.ctxbase;
-    if (!base.isValid()) throw Error(`EntityContextBase is not valid`);
-    const registry = base._enttRegistry();
-    return Registry_getEntityIdentifierComponent(registry, base.entityId).uuid;
+    return TryGetUserEntityIdComponent(this).uuid;
 };
 Player.prototype.forceAllowEating = procHacker.js("?forceAllowEating@Player@@QEBA_NXZ", bool_t, { this: Player });
 Player.prototype.getSpeed = procHacker.js("?getSpeed@Player@@UEBAMXZ", float32_t, { this: Player });
@@ -1500,13 +1735,12 @@ ServerPlayer.prototype.nextContainerCounter = procHacker.js("?_nextContainerCoun
 ServerPlayer.prototype.openInventory = procHacker.js("?openInventory@ServerPlayer@@UEAAXXZ", void_t, { this: ServerPlayer });
 ServerPlayer.prototype.resendAllChunks = procHacker.js("?resendAllChunks@Player@@QEAAXXZ", void_t, { this: ServerPlayer });
 ServerPlayer.prototype.sendNetworkPacket = procHacker.js("?sendNetworkPacket@ServerPlayer@@UEBAXAEAVPacket@@@Z", void_t, { this: ServerPlayer }, Packet);
+/**
+ * ~1.20.50 implementing part of ServerPlayer::sendNetworkPacket
+ * 1.20.50~ aspiring from existing, get components manually
+ */
 ServerPlayer.prototype.getNetworkIdentifier = function () {
-    // part of ServerPlayer::sendNetworkPacket
-    const base = this.ctxbase;
-    if (!base.isValid()) throw Error(`EntityContextBase is not valid`);
-    const registry = base._enttRegistry();
-    const res = Registry_getEntityIdentifierComponent(registry, base.entityId);
-    return res.networkIdentifier;
+    return TryGetUserEntityIdComponent(this).networkIdentifier;
 };
 ServerPlayer.prototype.setArmor = procHacker.js("?setArmor@ServerPlayer@@UEAAXW4ArmorSlot@@AEBVItemStack@@@Z", void_t, { this: ServerPlayer }, uint32_t, ItemStack);
 ServerPlayer.prototype.getInputMode = function () {
@@ -1833,6 +2067,13 @@ ItemStackRequestData.prototype.tryFindAction = procHacker.js(
     uint8_t,
 );
 
+PlayerAuthInputPacket.prototype.getInput = procHacker.js(
+    "?getInput@PlayerAuthInputPacket@@QEBA_NW4InputData@1@@Z",
+    bool_t,
+    { this: PlayerAuthInputPacket },
+    int32_t,
+);
+
 // networkidentifier.ts
 ServerNetworkHandler.prototype._getServerPlayer = procHacker.js(
     "?_getServerPlayer@ServerNetworkHandler@@EEAAPEAVServerPlayer@@AEBVNetworkIdentifier@@W4SubClientId@@@Z",
@@ -2148,7 +2389,7 @@ ItemStackBase.prototype.setNull = procHacker.js(
 ItemStackBase.prototype.getEnchantValue = procHacker.js("?getEnchantValue@ItemStackBase@@QEBAHXZ", int32_t, { this: ItemStackBase });
 ItemStackBase.prototype.isEnchanted = procHacker.js("?isEnchanted@ItemStackBase@@QEBA_NXZ", bool_t, { this: ItemStackBase });
 ItemStackBase.prototype.setDamageValue = procHacker.js("?setDamageValue@ItemStackBase@@QEAAXF@Z", void_t, { this: ItemStackBase }, int16_t);
-ItemStackBase.prototype.setItem = procHacker.js("?_setItem@ItemStackBase@@IEAA_NH_N@Z", bool_t, { this: ItemStackBase }, int32_t);
+ItemStackBase.prototype.setItem = procHacker.js("?_setItem@ItemStackBase@@AEAA_NH_N@Z", bool_t, { this: ItemStackBase }, int32_t);
 ItemStackBase.prototype.startCoolDown = procHacker.js("?startCoolDown@ItemStackBase@@QEBAXPEAVPlayer@@@Z", void_t, { this: ItemStackBase }, ServerPlayer);
 @nativeClass()
 class ComparisonOptions extends NativeClass {
@@ -2449,7 +2690,7 @@ BlockLegacy.prototype.setDestroyTime = procHacker.js("?setDestroyTime@BlockLegac
 BlockLegacy.prototype.getBlockEntityType = procHacker.js("?getBlockEntityType@BlockLegacy@@QEBA?AW4BlockActorType@@XZ", int32_t, { this: BlockLegacy });
 BlockLegacy.prototype.getBlockItemId = procHacker.js("?getBlockItemId@BlockLegacy@@QEBAFXZ", int16_t, { this: BlockLegacy });
 BlockLegacy.prototype.getStateFromLegacyData = procHacker.js(
-    "?getStateFromLegacyData@BlockLegacy@@UEBAAEBVBlock@@G@Z",
+    "?getStateFromLegacyData@BlockLegacy@@QEBAAEBVBlock@@G@Z",
     Block.ref(),
     { this: BlockLegacy },
     uint16_t,

@@ -1,6 +1,6 @@
 // this is imported from ../index.ts
 // Console Output
-console.log("[example/index] Hello, World!");
+console.log("[example/index] Hello, BDSX!");
 
 import "./actor-effects";
 import "./attribute";
@@ -36,4 +36,5 @@ import "./simulatedplayer";
 import "./storage";
 import "./test";
 import "./vulnerabilities";
+import "./shoot-projectile";
 // import './permissions';
