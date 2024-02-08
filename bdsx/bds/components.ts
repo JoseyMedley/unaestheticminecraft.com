@@ -17,13 +17,22 @@ export class PhysicsComponent extends AbstractClass {
     setHasCollision(actor: Actor, bool: boolean): void {
         abstract();
     }
-    setAffectedByGravity(actorData: SyncedActorDataComponent, bool: boolean): void {
+    setAffectedByGravity(actorData: ActorDataFlagComponent, actorDirtyData: ActorDataDirtyFlagsComponent, bool: boolean): void {
         abstract();
     }
 }
 
-@nativeClass(null)
+/**
+ * @deprecated removed
+ */
 export class SyncedActorDataComponent extends AbstractClass {}
+
+@nativeClass(null)
+export class ActorDataFlagComponent extends AbstractClass {}
+
+@nativeClass(null)
+export class ActorDataDirtyFlagsComponent extends AbstractClass {}
+
 /**
  * allows the entity to be a thrown entity.
  */

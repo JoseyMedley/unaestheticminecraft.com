@@ -525,7 +525,7 @@ export class WeakEntityRef extends AbstractClass {
 // @nativeClass(0x8)
 // class WrappedEntityId extends NativeClass {}
 
-@nativeClass(null)
+@nativeClass(0x20)
 export class EntityContext extends AbstractClass {
     @nativeField(VoidPointer.ref())
     enttRegistry: VoidPointer; // accessed on ServerNetworkHandler::_displayGameMessage
@@ -1503,6 +1503,14 @@ export class Actor extends AbstractClass {
     setVariant(variant: int32_t): void {
         abstract();
     }
+
+    /**
+     * @param target put null to unset the target.
+     */
+    setTarget(target: Actor | null): void {
+        abstract();
+    }
+
     protected _tryGetComponent(comp: string): any | null {
         abstract();
     }
