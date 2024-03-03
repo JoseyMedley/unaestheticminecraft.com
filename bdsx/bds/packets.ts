@@ -249,6 +249,8 @@ export class LevelSettings extends MantleClass {
 export class StartGamePacket extends Packet {
     @nativeField(LevelSettings)
     readonly settings: LevelSettings;
+    @nativeField(Vec2, 0x490)
+    readonly rot: Vec2;
 }
 @nativeClass(null)
 export class AddPlayerPacket extends Packet {
@@ -987,13 +989,13 @@ export class LegacyTelemetryEventPacket extends Packet {
     // unknown
 }
 
-/** @deprecated Use LegacyTelemetryEventPacket instead, to match to official class name*/
+/** @deprecated Use LegacyTelemetryEventPacket instead, to match the official class name*/
 export const EventPacket = LegacyTelemetryEventPacket;
-/** @deprecated Use LegacyTelemetryEventPacket instead, to match to official class name*/
+/** @deprecated Use LegacyTelemetryEventPacket instead, to match the official class name*/
 export type EventPacket = LegacyTelemetryEventPacket;
-/** @deprecated Use EventPacket instead, to match to official class name*/
+/** @deprecated Use EventPacket instead, to match the official class name*/
 export const TelemetryEventPacket = EventPacket;
-/** @deprecated Use EventPacket instead, to match to official class name*/
+/** @deprecated Use EventPacket instead, to match the official class name*/
 export type TelemetryEventPacket = EventPacket;
 
 @nativeClass(null)
@@ -1009,13 +1011,13 @@ export class ClientboundMapItemDataPacket extends Packet {
     // unknown
 }
 
-/** @deprecated Use ClientboundMapItemDataPacket instead, to match to official class name*/
+/** @deprecated Use ClientboundMapItemDataPacket instead, to match the official class name*/
 export const MapItemDataPacket = ClientboundMapItemDataPacket;
-/** @deprecated Use ClientboundMapItemDataPacket instead, to match to official class name*/
+/** @deprecated Use ClientboundMapItemDataPacket instead, to match the official class name*/
 export type MapItemDataPacket = ClientboundMapItemDataPacket;
-/** @deprecated Use ClientboundMapItemDataPacket instead, to match to official class name*/
+/** @deprecated Use ClientboundMapItemDataPacket instead, to match the official class name*/
 export const ClientboundMapItemData = ClientboundMapItemDataPacket;
-/** @deprecated Use ClientboundMapItemDataPacket instead, to match to official class name*/
+/** @deprecated Use ClientboundMapItemDataPacket instead, to match the official class name*/
 export type ClientboundMapItemData = ClientboundMapItemDataPacket;
 
 @nativeClass(null)
@@ -1353,9 +1355,9 @@ export class AutomationClientConnectPacket extends Packet {
     // unknown
 }
 
-/** @deprecated Use AutomationClientConnectPacket instead, to match to official class name*/
+/** @deprecated Use AutomationClientConnectPacket instead, to match the official class name*/
 export const WSConnectPacket = AutomationClientConnectPacket;
-/** @deprecated Use AutomationClientConnectPacket instead, to match to official class name*/
+/** @deprecated Use AutomationClientConnectPacket instead, to match the official class name*/
 export type WSConnectPacket = AutomationClientConnectPacket;
 
 @nativeClass(null)
@@ -1551,9 +1553,9 @@ export class LabTablePacket extends Packet {
 export class UpdateBlockSyncedPacket extends Packet {
     // unknown
 }
-/** @deprecated Use UpdateBlockSyncedPacket instead, to match to official class name*/
+/** @deprecated Use UpdateBlockSyncedPacket instead, to match the official class name*/
 export const UpdateBlockPacketSynced = UpdateBlockSyncedPacket;
-/** @deprecated Use UpdateBlockSyncedPacket instead, to match to official class name*/
+/** @deprecated Use UpdateBlockSyncedPacket instead, to match the official class name*/
 export type UpdateBlockPacketSynced = UpdateBlockSyncedPacket;
 
 @nativeClass(null)
@@ -1632,9 +1634,9 @@ export class BiomeDefinitionListPacket extends Packet {
     @nativeField(CompoundTag)
     nbt: CompoundTag;
 }
-/** @deprecated Use BiomeDefinitionListPacket instead, to match to official class name*/
+/** @deprecated Use BiomeDefinitionListPacket instead, to match the official class name*/
 export const BiomeDefinitionList = BiomeDefinitionListPacket;
-/** @deprecated Use BiomeDefinitionListPacket instead, to match to official class name*/
+/** @deprecated Use BiomeDefinitionListPacket instead, to match the official class name*/
 export type BiomeDefinitionList = BiomeDefinitionListPacket;
 
 @nativeClass(null)
@@ -1695,9 +1697,9 @@ export class MapCreateLockedCopyPacket extends Packet {
     @nativeField(uint64_as_float_t)
     new: uint64_as_float_t;
 }
-/** @deprecated Use MapCreateLockedCopyPacket instead, to match to official class name*/
+/** @deprecated Use MapCreateLockedCopyPacket instead, to match the official class name*/
 export const MapCreateLockedCopy = MapCreateLockedCopyPacket;
-/** @deprecated Use MapCreateLockedCopyPacket instead, to match to official class name*/
+/** @deprecated Use MapCreateLockedCopyPacket instead, to match the official class name*/
 export type MapCreateLockedCopy = MapCreateLockedCopyPacket;
 
 @nativeClass(null)
@@ -1710,9 +1712,9 @@ export class StructureTemplateDataResponsePacket extends Packet {
     // unknown
 }
 
-/** @deprecated Use StructureTemplateDataResponsePacket instead, to match to official class name*/
+/** @deprecated Use StructureTemplateDataResponsePacket instead, to match the official class name*/
 export const StructureTemplateDataExportPacket = StructureTemplateDataResponsePacket;
-/** @deprecated Use StructureTemplateDataResponsePacket instead, to match to official class name*/
+/** @deprecated Use StructureTemplateDataResponsePacket instead, to match the official class name*/
 export type StructureTemplateDataExportPacket = StructureTemplateDataResponsePacket;
 
 @nativeClass(null)
@@ -2213,9 +2215,9 @@ export class VideoStreamConnect_DEPRECATED extends Packet {
 export class AddEntityPacket extends Packet {
     // unknown
 }
-/** @deprecated Use AddEntityPacket instead, to match to official class name*/
+/** @deprecated Use AddEntityPacket instead, to match the official class name*/
 export const AddEntity = AddEntityPacket;
-/** @deprecated Use AddEntityPacket instead, to match to official class name*/
+/** @deprecated Use AddEntityPacket instead, to match the official class name*/
 export type AddEntity = AddEntityPacket;
 
 // export class UpdateBlockProperties extends Packet {

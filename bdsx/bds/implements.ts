@@ -483,6 +483,14 @@ ServerLevel.abstract({});
 
 LevelData.prototype.getGameDifficulty = procHacker.js("?getGameDifficulty@LevelData@@QEBA?AW4Difficulty@@XZ", uint32_t, { this: LevelData });
 LevelData.prototype.setGameDifficulty = procHacker.js("?setGameDifficulty@LevelData@@QEAAXW4Difficulty@@@Z", void_t, { this: LevelData }, uint32_t);
+LevelData.prototype.getRainLevel = procHacker.js("?getRainLevel@LevelData@@QEBAMXZ", float32_t, { this: LevelData });
+LevelData.prototype.setRainLevel = procHacker.js("?setRainLevel@LevelData@@QEAAXM@Z", void_t, { this: LevelData }, float32_t);
+LevelData.prototype.getRainTime = procHacker.js("?getRainTime@LevelData@@QEBAHXZ", int32_t, { this: LevelData });
+LevelData.prototype.setRainTime = procHacker.js("?setRainTime@LevelData@@QEAAXH@Z", void_t, { this: LevelData }, int32_t);
+LevelData.prototype.getLightningLevel = procHacker.js("?getLightningLevel@LevelData@@QEBAMXZ", float32_t, { this: LevelData });
+LevelData.prototype.setLightningLevel = procHacker.js("?setLightningLevel@LevelData@@QEAAXM@Z", void_t, { this: LevelData }, float32_t);
+LevelData.prototype.getLightningTime = procHacker.js("?getLightningTime@LevelData@@QEBAHXZ", int32_t, { this: LevelData });
+LevelData.prototype.setLightningTime = procHacker.js("?setLightningTime@LevelData@@QEAAXH@Z", void_t, { this: LevelData }, int32_t);
 
 JsonUtil.getBlockLegacy = procHacker.js(
     "?getBlockLegacy@JsonUtil@@YAPEBVBlockLegacy@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z",
@@ -2483,6 +2491,8 @@ const ItemStackBase$hurtAndBreak = procHacker.js("?hurtAndBreak@ItemStackBase@@Q
 ItemStackBase.prototype.hurtAndBreak = function (count: number, actor: Actor | null = null): boolean {
     return ItemStackBase$hurtAndBreak.call(this, count, actor);
 };
+ItemStackBase.prototype.matches = procHacker.js("?matches@ItemStackBase@@QEBA_NAEBV1@@Z", bool_t, { this: ItemStackBase }, ItemStackBase);
+ItemStackBase.prototype.matchesItem = procHacker.js("?matchesItem@ItemStackBase@@QEBA_NAEBV1@@Z", bool_t, { this: ItemStackBase }, ItemStackBase);
 
 const ItemStackBase$load = procHacker.js("?load@ItemStackBase@@QEAAXAEBVCompoundTag@@@Z", void_t, { this: ItemStackBase }, CompoundTag);
 ItemStackBase.prototype.load = function (tag) {
@@ -2494,8 +2504,8 @@ ItemStackBase.prototype.load = function (tag) {
         allocated.dispose();
     }
 };
-const ItemStack$clone = procHacker.js("?clone@ItemStack@@QEBA?AV1@XZ", void_t, null, ItemStack, ItemStack);
 
+const ItemStack$clone = procHacker.js("?clone@ItemStack@@QEBA?AV1@XZ", void_t, null, ItemStack, ItemStack);
 ItemStack.prototype.clone = function (target: ItemStack = new ItemStack(true)) {
     ItemStack$clone(this, target);
     return target;
