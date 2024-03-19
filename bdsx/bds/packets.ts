@@ -461,7 +461,9 @@ export namespace ActorEventPacket {
         Jump = 1,
         HurtAnimation,
         DeathAnimation,
-        ArmSwing,
+        StartAttack,
+        /** @deprecated following the official name */
+        ArmSwing = 4,
         StopAttack,
         TameFail,
         TameSuccess,
@@ -503,8 +505,10 @@ export namespace ActorEventPacket {
         CompleteTrade,
         RemoveLeash,
         ConsumeTotem = 65,
-        PlayerCheckTreasureHunterAchievement,
-        EntitySpawn,
+        UpdateStructureFeature,
+        /** @deprecated following the official name */
+        PlayerCheckTreasureHunterAchievement = 66,
+        EntitySpawn, // by player
         DragonPuke,
         ItemEntityMerge,
         StartSwim,
@@ -513,6 +517,9 @@ export namespace ActorEventPacket {
         AgentSummon,
         ChargedCrossbow,
         Fall,
+        ActorGrowUp,
+        VibrationDetected,
+        DrinkMilk,
     }
 }
 
@@ -1035,6 +1042,9 @@ export class ChunkRadiusUpdatedPacket extends Packet {
     // unknown
 }
 
+/**
+ * @deprecated removed
+ */
 @nativeClass(null)
 export class ItemFrameDropItemPacket extends Packet {
     // unknown
@@ -1867,7 +1877,6 @@ export namespace PlayerAuthInputPacket {
         DescendScaffolding,
         SneakToggleDown,
         PersistSneak,
-        // 0-24: These are all from IDA, PlayerAuthInputPacket::InputData in 1.14.60.5
         StartSprinting,
         StopSprinting,
         StartSneaking,
@@ -1887,7 +1896,11 @@ export namespace PlayerAuthInputPacket {
         StopCrawling,
         StartFlying,
         StopFlying,
-        AckActorData,
+        AckActorData, // DOC: ClientAckServerData
+        IsInClientPredictedVehicle,
+        PaddingLeft,
+        PaddingRight,
+        INPUT_NUM,
     }
 }
 
