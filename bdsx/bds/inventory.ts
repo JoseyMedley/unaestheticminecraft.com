@@ -710,9 +710,16 @@ export class PlayerInventory extends AbstractClass {
     }
 
     /**
-     * It doesn't care item's amount
+     * It doesn't consider item's amount
      */
     canAdd(itemStack: ItemStack): boolean {
+        abstract();
+    }
+
+    /**
+     * @param silentDrops if true, the items are not spawned as an entity and should do `.sendInventory()`
+     */
+    dropAllOnDeath(silentDrops: bool_t = false): void {
         abstract();
     }
 }

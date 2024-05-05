@@ -1376,6 +1376,7 @@ Mob.prototype.getToughnessValue = function () {
     return toughness;
 };
 Mob.prototype.isBlocking = procHacker.jsv("??_7Mob@@6B@", "?isBlocking@Mob@@UEBA_NXZ", bool_t, { this: Mob });
+Mob.prototype.shouldDropDeathLoot = procHacker.jsv("??_7Mob@@6B@", "?shouldDropDeathLoot@Mob@@UEBA_NXZ", bool_t, { this: Mob });
 
 OwnerStorageEntity.prototype._getStackRef = procHacker.js("?_getStackRef@OwnerStorageEntity@@IEBAAEAVEntityContext@@XZ", EntityContext, {
     this: OwnerStorageEntity,
@@ -2682,6 +2683,7 @@ PlayerInventory.prototype.removeResource = function (item: ItemStack, requireExa
     return FillingContainer$removeResource(container, item, requireExactAux, requireExactData, maxCount);
 };
 PlayerInventory.prototype.canAdd = procHacker.js("?canAdd@PlayerInventory@@QEBA_NAEBVItemStack@@@Z", bool_t, { this: PlayerInventory }, ItemStack);
+PlayerInventory.prototype.dropAllOnDeath = procHacker.js("?dropAllOnDeath@PlayerInventory@@QEAAX_N@Z", void_t, { this: PlayerInventory }, bool_t);
 
 ItemDescriptor.prototype[NativeType.ctor] = procHacker.js("??0ItemDescriptor@@QEAA@XZ", void_t, { this: ItemDescriptor });
 ItemDescriptor.prototype[NativeType.dtor] = procHacker.js("??1ItemDescriptor@@UEAA@XZ", void_t, { this: ItemDescriptor });
