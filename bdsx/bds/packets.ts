@@ -2,6 +2,7 @@ import { abstract, BuildPlatform } from "../common";
 import { StaticPointer, VoidPointer } from "../core";
 import { CxxPair } from "../cxxpair";
 import { CxxVector } from "../cxxvector";
+import { makefunc } from "../makefunc";
 import { mce } from "../mce";
 import { AbstractClass, MantleClass, nativeClass, NativeClass, nativeField, NativeStruct } from "../nativeclass";
 import {
@@ -193,11 +194,11 @@ export class TextPacket extends Packet {
     name: CxxString;
     @nativeField(CxxString)
     message: CxxString;
-    @nativeField(CxxVector$string)
+    @nativeField(CxxVector$string, 0xa0)
     params: CxxVector<CxxString>;
-    @nativeField(bool_t, 0x90)
+    @nativeField(bool_t)
     needsTranslation: bool_t;
-    @nativeField(CxxString, 0x98)
+    @nativeField(CxxString)
     xboxUserId: CxxString;
     @nativeField(CxxString)
     platformChatId: CxxString;
@@ -417,6 +418,7 @@ export class AddPaintingPacket extends Packet {
     // unknown
 }
 
+/** @deprecated removed */
 @nativeClass(null)
 export class TickSyncPacket extends Packet {
     // unknown
@@ -869,7 +871,7 @@ export class GuiDataPickItemPacket extends Packet {
 }
 
 /**
- * @deprecated deleted from BDS
+ * @deprecated removed
  */
 @nativeClass()
 export class AdventureSettingsPacket extends Packet {
@@ -1855,6 +1857,7 @@ export namespace PlayerAuthInputPacket {
     export enum InputData {
         Ascend,
         Descend,
+        /** @deprecated removed */
         NorthJump,
         JumpDown,
         SprintDown,
@@ -1901,7 +1904,8 @@ export namespace PlayerAuthInputPacket {
         IsInClientPredictedVehicle,
         PaddingLeft,
         PaddingRight,
-        INPUT_NUM,
+        BlockBreakingDelayEnabled,
+        INPUT_NUM = 49,
     }
 }
 
@@ -2013,7 +2017,7 @@ export class ItemStackRequestBatch extends AbstractClass {
 @nativeClass(null)
 export class ItemStackRequestPacket extends Packet {
     getRequestBatch(): ItemStackRequestBatch {
-        abstract();
+        return ItemStackRequestBatch[makefunc.getFromParam](this.add(), 0x30);
     }
 }
 
@@ -2111,9 +2115,24 @@ export class MotionPredictionHintsPacket extends Packet {
     // unknown
 }
 
+/** https://mojang.github.io/bedrock-protocol-docs/html/AnimateEntityPacket.html */
 @nativeClass(null)
 export class AnimateEntityPacket extends Packet {
-    // unknown
+    @nativeField(CxxVector.make(ActorRuntimeID))
+    runtimeIds: CxxVector<ActorRuntimeID>;
+    @nativeField(CxxString)
+    animation: CxxString;
+    @nativeField(CxxString)
+    nextState: CxxString;
+    @nativeField(CxxString)
+    stopExpression: CxxString;
+    /** Molang version */
+    @nativeField(int32_t)
+    stopExpressionVersion: int32_t;
+    @nativeField(CxxString)
+    controller: CxxString;
+    @nativeField(float32_t)
+    blendOutTime: float32_t;
 }
 
 @nativeClass(null)
@@ -2437,7 +2456,11 @@ export class SetHudPacket extends Packet {
     visibility: HudVisibility;
 }
 
-export namespace SetHudPacket {}
+@nativeClass(null)
+export class AwardAchievementPacket extends Packet {
+    // unknown
+}
+
 export const PacketIdToType = {
     0x01: LoginPacket,
     0x02: PlayStatusPacket,
@@ -2643,6 +2666,7 @@ export const PacketIdToType = {
     0x132: PlayerToggleCrafterSlotRequestPacket,
     0x133: SetPlayerInventoryOptionsPacket,
     0x134: SetHudPacket,
+    0x135: AwardAchievementPacket,
 };
 export type PacketIdToType = {
     [key in keyof typeof PacketIdToType]: InstanceType<(typeof PacketIdToType)[key]>;

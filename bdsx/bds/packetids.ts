@@ -28,6 +28,7 @@ export enum MinecraftPacketIds { // int32_t
     PassengerJump = 0x14,
     UpdateBlock = 0x15,
     AddPainting = 0x16,
+    /** @deprecated removed */
     TickSync = 0x17,
     /** @deprecated removed */
     LevelSoundEventV1 = 0x18,
@@ -255,5 +256,8 @@ export enum MinecraftPacketIds { // int32_t
     PlayerToggleCrafterSlotRequest = 0x132,
     SetPlayerInventoryOptions = 0x133,
     SetHud = 0x134,
+    AwardAchievement = 0x135,
+
+    // EndId = 0x136
 }
 (MinecraftPacketIds as any).__proto__ = null;
